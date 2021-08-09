@@ -52,19 +52,24 @@ start()->
 
 setup()->
 
-    %% Test env vars 
-   
-%    io:format("Line = ~p~n",[{?MODULE,?LINE}]),
-    
-    % Start a Service application 
-   % rpc:call(node(),application,stop,[?APP],2*5000),
-   % timer:sleep(3000),    
-  %  ok=rpc:call(node(),application,start,[?APP],2*5000),
-  %  ?assertMatch({pong,_,?APP},
-%		 rpc:call(node(),?APP,ping,[],2*5000)),		 
-
+    {ok,ClusterIdAtom}=application:get_env(unit_test,cluster_id),
+    ClusterId=atom_to_list(ClusterIdAtom),
+    os:cmd("rm -rf "++ClusterId),
+    ok=file:make_dir(ClusterId),
+    {ok,MonitorNodeNameAtom}=application:get_env(unit_test,monitor_node),
+    MonitorNodeName=atom_to_list(MonitorNodeNameAtom),
+    {ok,HostId}=inet:gethostname(),
+    MonitorNode=list_to_atom(MonitorNodeName++"@"++HostId),
+    io:format("glurk ~p~n",[{ClusterId,MonitorNode,?MODULE,?LINE}]),
+    Env=[{cluster_id,ClusterIdAtom},{monitor_node,MonitorNode}],
+    ok=application:set_env([{support,Env},
+			 {kubelet,Env},
+			 {etcd,Env}]),
+    ok=application:start(support),
+    ok=application:start(kubelet),
     ok=application:start(etcd),
-    {ok,_}=iaas:start(),
+    
+   {ok,_}=iaas:start(),
     ok.
 
 

@@ -5,10 +5,7 @@ all:
 	rm -rf src/*.beam *.beam  test_src/*.beam test_ebin;
 	rm -rf  *~ */*~  erl_cra*;
 	rm -rf *_specs *_config *.log;
-	rm -rf support etcd catalog cluster_config host_config;
 	echo Done
-doc_gen:
-	echo glurk not implemented
 test_10_unit_test:
 	rm -rf test_10_ebin;
 	rm -rf src/*.beam *.beam test_src/*.beam test_ebin;
@@ -17,12 +14,17 @@ test_10_unit_test:
 #	interface
 	erlc -I ../interfaces -o test_10_ebin ../interfaces/*.erl;
 #	support
-	rm -rf support;
-	erlc -I ../interfaces -o test_10_ebin ../support/src/*.erl;
+	cp ../applications/support/src/*.app test_10_ebin;
+	erlc -I ../interfaces -o test_10_ebin ../kube_support/src/*.erl;
+	erlc -I ../interfaces -o test_10_ebin ../applications/support/src/*.erl;
 #	etcd
 	cp ../applications/etcd/src/*.app test_10_ebin;
 	erlc -I ../interfaces -o test_10_ebin ../kube_dbase/src/*.erl;
 	erlc -I ../interfaces -o test_10_ebin ../applications/etcd/src/*.erl;
+#	kubelet
+	cp ../applications/kubelet/src/*.app test_10_ebin;
+	erlc -I ../interfaces -o test_10_ebin ../node/src/*.erl;
+	erlc -I ../interfaces -o test_10_ebin ../applications/kubelet/src/*.erl;
 #	iaas
 	erlc -I ../interfaces -o test_10_ebin src/*.erl;
 #	test application

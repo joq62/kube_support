@@ -1,7 +1,10 @@
 %%% -------------------------------------------------------------------
 %%% Author  : uabjle
-%%% Description : dbase using dets 
-%%% 
+%%% Description : 
+%%% ToDo 
+%%% 1. New cluster
+%%% 2. Check existing cluster -> restart missing node vms
+%%%
 %%% Created : 10 dec 2012
 %%% -------------------------------------------------------------------
 -module(cluster).    
@@ -28,6 +31,7 @@
 
 	 status_clusters/0,
 	 status_clusters/1,
+
 	 create/1,
 	 delete/1
 	]).
@@ -60,8 +64,10 @@ strive_desired_state()->
 %% --------------------------------------------------------------------
 
 status_clusters()->
-    {ok,ClusterId}=application:get_env(cluster_id),
-    status_clusters(atom_to_list(ClusterId)).
+    ClusterId=db_cluster:read(cluster_id),
+    status_clusters(ClusterId).
+%    {ok,ClusterId}=application:get_env(cluster_id),
+%    status_clusters(atom_to_list(ClusterId)).
 status_clusters(ClusterId)->
     R=case db_cluster_info:read(ClusterId) of
 	  []->
@@ -77,14 +83,18 @@ check([],Running,Missing)->
     {{running,Running},{missing,Missing}};
 
 check([{ClusterId,ControllerAlias,_,WorkerAlias,_Cookie,_}|T],Running,Missing) ->
-    H1=[XAlias||XAlias<-WorkerAlias,
-		false==lists:member(XAlias,ControllerAlias)],
+  %  ?PrintLog(debug,"WorkerAlias ",[WorkerAlias,?FUNCTION_NAME,?MODULE,?LINE]),
+    H1=[Alias||{Alias,_HostId}<-WorkerAlias,
+		false==lists:member(Alias,ControllerAlias)],
     AllAlias=lists:append(ControllerAlias,H1),
+  % ?PrintLog(debug,"WorkerAlias ",[WorkerAlias,?FUNCTION_NAME,?MODULE,?LINE]),
     AllHostInfo=[db_host_info:read(Alias)||Alias<-AllAlias],
+  %  ?PrintLog(debug,"AllHostInfo ",[AllHostInfo,?FUNCTION_NAME,?MODULE,?LINE]),
+
   %  NodesToCheck=[{Alias,?KubeletNode(ClusterId,Alias,HostId)}||[{Alias,HostId,_Ip,_SshPort,_UId,_Pwd}]<-AllHostInfo],
     NodesToCheck=[{Alias,?HostNode(ClusterId,HostId)}||[{Alias,HostId,_Ip,_SshPort,_UId,_Pwd}]<-AllHostInfo],
-   
-   {R1,M1}=do_ping(NodesToCheck,ClusterId,[],[]),
+  %  ?PrintLog(debug,"NodesToCheck ",[NodesToCheck,?FUNCTION_NAME,?MODULE,?LINE]),
+    {R1,M1}=do_ping(NodesToCheck,ClusterId,[],[]),
     case M1 of
 	[]->
 	    NewRunning=[{ClusterId,R1}|Running],
@@ -113,6 +123,7 @@ do_ping([{Alias,Node}|T],ClusterId,Running,Missing)->
 %% Returns: non
 %% --------------------------------------------------------------------
 delete(ClusterId)->
+    ?PrintLog(log,"Delete ClusterId ",[ClusterId,?FUNCTION_NAME,?MODULE,?LINE]),
       R=case db_cluster_info:read(ClusterId) of
 	  []->
 	      {error,[eexists,ClusterId]};
@@ -129,6 +140,7 @@ delete(ClusterId)->
 delete_cluster(Node,ClusterId)->
     rpc:call(Node,os,cmd,["rm -rf "++ClusterId],5*1000),
     rpc:call(Node,init,stop,[]),
+    {atomic,ok}=db_cluster:remove(host_nodes,Node),
     {stopped,Node,ClusterId}.
 %% --------------------------------------------------------------------
 %% Function:start/0 
@@ -141,6 +153,7 @@ delete_cluster(Node,ClusterId)->
 create(ClusterId)->
     F1=fun start_node/2,
     F2=fun check_node/3,
+    ?PrintLog(log,"Create ClusterId ",[ClusterId,?FUNCTION_NAME,?MODULE,?LINE]),
     R=case db_cluster_info:read(ClusterId) of
 	  []->
 	      ?PrintLog(ticket,"ClusterId eexists",[{error,[eexists,ClusterId]},?FUNCTION_NAME,?MODULE,?LINE]),
@@ -203,7 +216,7 @@ create_list_to_reduce([{Alias,HostId}|T],ClusterId,Cookie,Acc)->
 start_node(Pid,[{Alias,HostId,Ip,SshPort,UId,Pwd},NodeName,ClusterId,Cookie])->
     {Result,Node}=start_node([{Alias,HostId,Ip,SshPort,UId,Pwd},NodeName,ClusterId,Cookie]),
     Pid!{check_node,{Result,Node,ClusterId,HostId,Ip,SshPort}}.
-    
+ 
 start_node([{Alias,HostId,Ip,SshPort,UId,Pwd},NodeName,ClusterId,Cookie])->
  %   io:format("start_node ~p~n",[{?MODULE,?LINE,Alias,HostId,Ip,SshPort,NodeName,Cookie}]),
     RM_cluster="rm -rf "++ClusterId,
@@ -247,15 +260,15 @@ check_node(check_node,Vals,[])->
 check_node([],Result)->
     Result;
 
-check_node([{{badrpc,timeout},Node,ClusterId,Alias,Ip,SshPort}|T],Acc)->
-    ?PrintLog(ticket,"Failed to start node",[Node,Alias,{badrpc,timeout},?FUNCTION_NAME,?MODULE,?LINE]),
-    check_node(T,[{error,[{badrpc,timeout},Node,ClusterId,Alias,Ip,SshPort]}|Acc]); 
-check_node([{{error,Reason},Node,ClusterId,Alias,Ip,SshPort}|T],Acc)->
-     ?PrintLog(ticket,"Failed to start node",[Node,Alias,ClusterId,{error,Reason},?FUNCTION_NAME,?MODULE,?LINE]),
-     check_node(T,[{error,[Reason,Node,Alias,Ip,SshPort]}|Acc]);
+check_node([{{badrpc,timeout},Node,ClusterId,HostId,Ip,SshPort}|T],Acc)->
+    ?PrintLog(ticket,"Failed to start node",[Node,HostId,{badrpc,timeout},?FUNCTION_NAME,?MODULE,?LINE]),
+    check_node(T,[{error,[{badrpc,timeout},Node,ClusterId,HostId,Ip,SshPort]}|Acc]); 
+check_node([{{error,Reason},Node,ClusterId,HostId,Ip,SshPort}|T],Acc)->
+     ?PrintLog(ticket,"Failed to start node",[Node,HostId,ClusterId,{error,Reason},?FUNCTION_NAME,?MODULE,?LINE]),
+     check_node(T,[{error,[Reason,Node,HostId,Ip,SshPort]}|Acc]);
   
-check_node([{Result,Node,ClusterId,Alias,Ip,SshPort}|T],Acc)->
-  %  ?PrintLog(debug,"Result",[Result,Alias,Node,ClusterId]),
+check_node([{Result,Node,ClusterId,HostId,Ip,SshPort}|T],Acc)->
+  %  ?PrintLog(debug,"Result",[Result,HostId,Node,ClusterId]),
  %   ?PrintLog(debug,"Cookie after created ",[rpc:call(Node,erlang,get_cookie,[]),Node,?FUNCTION_NAME,?MODULE,?LINE]),
     NewAcc=case Result of
 	       ok->
@@ -264,23 +277,15 @@ check_node([{Result,Node,ClusterId,Alias,Ip,SshPort}|T],Acc)->
 		  % timer:sleep(1000),
 		   case node_started(Node) of
 		       true->
-			 %  ?PrintLog(debug,"disable kubelet start",[Alias,Node,Ip,SshPort]),
-			 %  glurk;
-						% laod_start kubelet
-			 %  [PodSpec]=db_pod_spec:read("kubelet"),
-			 %  {ok,MonitorNode}=application:get_env(monitor_node),
-			 %  case pod:load_start(Node,ClusterId,MonitorNode,PodSpec) of
-			 %      ok->
-%				   ?PrintLog(debug,"Cookie after kubelte ",[rpc:call(Node,erlang,get_cookie,[]),Node,?FUNCTION_NAME,?MODULE,?LINE]),
-			%	   ?PrintLog(log,"Started succesful",[Alias,Node,Ip,SshPort]),
-			   [{ok,Node,Alias,ClusterId,Ip,SshPort}|Acc];
+			   {atomic,ok}=db_cluster:add(host_nodes,{Node,HostId}),
+			   [{ok,Node,HostId,ClusterId,Ip,SshPort}|Acc];
 		       false->
-			   ?PrintLog(ticket,"Failed to connect to node",[Node,Alias,?FUNCTION_NAME,?MODULE,?LINE]),
-			   [{error,["Failed to connect to node",Node,Alias,ClusterId,Ip,SshPort,?MODULE,?FUNCTION_NAME,?LINE]}|Acc]
+			   ?PrintLog(ticket,"Failed to connect to node",[Node,HostId,?FUNCTION_NAME,?MODULE,?LINE]),
+			   [{error,["Failed to connect to node",Node,HostId,ClusterId,Ip,SshPort,?MODULE,?FUNCTION_NAME,?LINE]}|Acc]
 		   end;
 	       Err->
-		   ?PrintLog(ticket,"error",[Err,Node,Alias,?FUNCTION_NAME,?MODULE,?LINE]),
-		   [{Result,Node,Alias,ClusterId,Ip,SshPort}|Acc]
+		   ?PrintLog(ticket,"error",[Err,Node,HostId,?FUNCTION_NAME,?MODULE,?LINE]),
+		   [{Result,Node,HostId,ClusterId,Ip,SshPort}|Acc]
 	   end,
     check_node(T,NewAcc).
 node_started(Node)->

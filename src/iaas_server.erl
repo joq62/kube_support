@@ -286,7 +286,8 @@ cl_strive_desired_state()->
     {{running,RunningClusters},{missing,MissingClusters}}=ClusterStatus,
     case MissingClusters of
 	[]->
-	    ok;
+	    PrintRunningClusters=[XClusterId||{XClusterId,_}<-RunningClusters],
+	    ?PrintLog(log,"Running Clusters ",[PrintRunningClusters]);
 	_->
 	    PrintRunningClusters=[XClusterId||{XClusterId,_}<-RunningClusters],
 	    ?PrintLog(log,"Running Clusters ",[PrintRunningClusters]),
