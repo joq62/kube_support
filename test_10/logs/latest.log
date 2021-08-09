@@ -1,107 +1,99 @@
-{{2021,8,9},
- {22,55,51},
+{{2021,8,10},
+ {1,12,18},
  'iaas_test_10@joq62-X550CA',log,"Successful starting of server",
  [kubelet_server]}.
-{{2021,8,9},
- {22,55,51},
+{{2021,8,10},
+ {1,12,18},
  'iaas_test_10@joq62-X550CA',debug,"Cookie",
  [test_10_cookie,'iaas_test_10@joq62-X550CA',init,kubelet_server,76]}.
-{{2021,8,9},
- {22,55,52},
+{{2021,8,10},
+ {1,12,20},
  'iaas_test_10@joq62-X550CA',log,"Start init",
  [iaas_server]}.
-{{2021,8,9},
- {22,55,52},
+{{2021,8,10},
+ {1,12,20},
  'iaas_test_10@joq62-X550CA',log,
  "1/8 load cluster and hosts and deployment info",
  [init,iaas_server,66]}.
-{{2021,8,9},
- {22,55,52},
+{{2021,8,10},
+ {1,12,20},
  'iaas_test_10@joq62-X550CA',log,"2/8 Starts ssh ",
  [ok,init,iaas_server,67]}.
-{{2021,8,9},
- {22,55,56},
+{{2021,8,10},
+ {1,12,24},
  'iaas_test_10@joq62-X550CA',log,"3/8 Running Hosts ",
  [[{running,"c1_varmdo","c1","192.168.1.201",22},
    {running,"asus_varmdo","joq62-X550CA","192.168.1.50",22}],
   init,iaas_server,76]}.
-{{2021,8,9},
- {22,55,56},
+{{2021,8,10},
+ {1,12,24},
  'iaas_test_10@joq62-X550CA',log,"4/8 Missing Hosts ",
- [[{missing,"asus_lgh","joq62-X550CA","192.168.0.100",22},
+ [[{missing,"c0_varmdo","c0","192.168.1.200",22},
+   {missing,"asus_lgh","joq62-X550CA","192.168.0.100",22},
    {missing,"c2_varmdo","c2","192.168.1.202",22},
-   {missing,"c0_varmdo","c0","192.168.1.200",22},
    {missing,"c2_lgh","c2","192.168.0.202",22},
    {missing,"c0_lgh","c0","192.168.0.200",22},
    {missing,"c1_lgh","c1","192.168.0.201",22}],
   init,iaas_server,77]}.
-{{2021,8,9},
- {22,55,56},
+{{2021,8,10},
+ {1,12,24},
  'iaas_test_10@joq62-X550CA',log,"Create ClusterId ",
- ["test_10",create,cluster,156]}.
-{{2021,8,9},
- {22,56,9},
+ ["test_10",create,cluster,154]}.
+{{2021,8,10},
+ {1,12,36},
  'iaas_test_10@joq62-X550CA',log,"ssh ",
- ["rm -rf test_10",ok,"asus_varmdo",start_node,cluster,224]}.
-{{2021,8,9},
- {22,56,9},
+ ["rm -rf test_10",ok,"asus_varmdo",start_node,cluster,228]}.
+{{2021,8,10},
+ {1,12,36},
  'iaas_test_10@joq62-X550CA',log,"ssh ",
- ["rm -rf test_10",ok,"c1_varmdo",start_node,cluster,224]}.
-{{2021,8,9},
- {22,56,21},
+ ["rm -rf test_10",ok,"c1_varmdo",start_node,cluster,228]}.
+{{2021,8,10},
+ {1,12,48},
  'iaas_test_10@joq62-X550CA',log,"ssh ",
- ["mkdir test_10",ok,"asus_varmdo",start_node,cluster,227]}.
-{{2021,8,9},
- {22,56,21},
+ ["mkdir test_10",ok,"asus_varmdo",start_node,cluster,231]}.
+{{2021,8,10},
+ {1,12,49},
  'iaas_test_10@joq62-X550CA',log,"ssh ",
- ["mkdir test_10",ok,"c1_varmdo",start_node,cluster,227]}.
-{{2021,8,9},
- {22,56,22},
+ ["mkdir test_10",ok,"c1_varmdo",start_node,cluster,231]}.
+{{2021,8,10},
+ {1,12,49},
  'iaas_test_10@joq62-X550CA',log,"init stop ",
  [{badrpc,nodedown},
-  'joq62-X550CA_test_10@joq62-X550CA',start_node,cluster,238]}.
-{{2021,8,9},
- {22,56,22},
+  'joq62-X550CA_test_10@joq62-X550CA',start_node,cluster,242]}.
+{{2021,8,10},
+ {1,12,50},
  'iaas_test_10@joq62-X550CA',log,"init stop ",
- [{badrpc,nodedown},c1_test_10@c1,start_node,cluster,238]}.
-{{2021,8,9},
- {22,56,34},
+ [{badrpc,nodedown},c1_test_10@c1,start_node,cluster,242]}.
+{{2021,8,10},
+ {1,13,1},
  'iaas_test_10@joq62-X550CA',log,"ssh ",
  [ok,"nohup erl_call -s -sname joq62-X550CA_test_10 -c test_10_cookie &",
-  'joq62-X550CA_test_10@joq62-X550CA',start_node,cluster,245]}.
-{{2021,8,9},
- {22,56,35},
+  'joq62-X550CA_test_10@joq62-X550CA',start_node,cluster,249]}.
+{{2021,8,10},
+ {1,13,2},
  'iaas_test_10@joq62-X550CA',log,"ssh ",
  [ok,"nohup erl_call -s -sname c1_test_10 -c test_10_cookie &",c1_test_10@c1,
-  start_node,cluster,245]}.
-{{2021,8,9},
- {22,56,35},
+  start_node,cluster,249]}.
+{{2021,8,10},
+ {1,13,2},
  'iaas_test_10@joq62-X550CA',log,"5/8 Running Clusters ",
  [[{"test_10",
     [{"asus_varmdo",'joq62-X550CA_test_10@joq62-X550CA'},
      {"c1_varmdo",c1_test_10@c1}]}],
   init,iaas_server,87]}.
-{{2021,8,9},
- {22,56,35},
+{{2021,8,10},
+ {1,13,2},
  'iaas_test_10@joq62-X550CA',log,"6/8 Missing Clusters ",
  [[],init,iaas_server,88]}.
-{{2021,8,9},
- {22,56,35},
+{{2021,8,10},
+ {1,13,2},
  'iaas_test_10@joq62-X550CA',log,"7/8 Start cluster_status_interval() ",
  [init,iaas_server,90]}.
-{{2021,8,9},
- {22,56,35},
+{{2021,8,10},
+ {1,13,2},
  'iaas_test_10@joq62-X550CA',log,"8/8 Successful starting of server",
  [iaas_server]}.
-{{2021,8,9},
- {22,58,35},
- 'iaas_test_10@joq62-X550CA',log,"Running Clusters ",
- [["test_10"]]}.
-{{2021,8,9},
- {22,58,39},
- 'iaas_test_10@joq62-X550CA',log,"Running Hosts ",
- [["c1_varmdo","asus_varmdo"]]}.
-{{2021,8,9},
- {22,58,39},
- 'iaas_test_10@joq62-X550CA',ticket,"Missing Hosts ",
- [["c0_varmdo","asus_lgh","c2_varmdo","c2_lgh","c0_lgh","c1_lgh"]]}.
+{{2021,8,10},
+ {1,13,7},
+ 'iaas_test_10@joq62-X550CA',log,"Delete ClusterId ",
+ ["test_10",delete,cluster,124]}.

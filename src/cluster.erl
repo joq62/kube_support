@@ -66,8 +66,6 @@ strive_desired_state()->
 status_clusters()->
     ClusterId=db_cluster:read(cluster_id),
     status_clusters(ClusterId).
-%    {ok,ClusterId}=application:get_env(cluster_id),
-%    status_clusters(atom_to_list(ClusterId)).
 status_clusters(ClusterId)->
     R=case db_cluster_info:read(ClusterId) of
 	  []->
@@ -198,7 +196,13 @@ create_list_to_reduce([{Alias,HostId}|T],ClusterId,Cookie,Acc)->
 		 {error,[eexists,Alias]};
 	     [AliasInfo]->
 		 NodeName=?HostNodeName(ClusterId,HostId),
-		 {ok,[AliasInfo,NodeName,ClusterId,Cookie]}
+		 %Check if allready started
+		 case net_adm:ping(?HostNode(ClusterId,HostId)) of
+		     pang->
+			 {ok,[AliasInfo,NodeName,ClusterId,Cookie]};
+		     pong->
+			 {already_started,[AliasInfo,NodeName,ClusterId,Cookie]}
+		 end
 	 end,
     create_list_to_reduce(T,ClusterId,Cookie,[Info|Acc]).    
 

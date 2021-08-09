@@ -74,7 +74,15 @@ start()->
 %% Returns: non
 %% --------------------------------------------------------------------
 pass_0()->
-   % glurk=application:get_env(monitor_node),
+    os:cmd("rm -rf pod_*"),
+    timer:sleep(3000),
+    {ok,Ref}=pod:create("joq62-X550CA"),
+    timer:sleep(1000),
+    io:format("nodes() ~p~n",[{nodes(),?MODULE,?FUNCTION_NAME,?LINE}]),
+    
+    pod:delete(Ref),
+    io:format("nodes() ~p~n",[{nodes(),?MODULE,?FUNCTION_NAME,?LINE}]),
+    cluster:delete("test_10"),
     
     ok.
 
