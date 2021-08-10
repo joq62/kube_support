@@ -1,99 +1,147 @@
 {{2021,8,10},
- {1,12,18},
+ {8,48,27},
  'iaas_test_10@joq62-X550CA',log,"Successful starting of server",
  [kubelet_server]}.
 {{2021,8,10},
- {1,12,18},
+ {8,48,27},
  'iaas_test_10@joq62-X550CA',debug,"Cookie",
  [test_10_cookie,'iaas_test_10@joq62-X550CA',init,kubelet_server,76]}.
 {{2021,8,10},
- {1,12,20},
+ {8,48,28},
  'iaas_test_10@joq62-X550CA',log,"Start init",
  [iaas_server]}.
 {{2021,8,10},
- {1,12,20},
+ {8,48,28},
  'iaas_test_10@joq62-X550CA',log,
  "1/8 load cluster and hosts and deployment info",
  [init,iaas_server,66]}.
 {{2021,8,10},
- {1,12,20},
+ {8,48,28},
  'iaas_test_10@joq62-X550CA',log,"2/8 Starts ssh ",
  [ok,init,iaas_server,67]}.
 {{2021,8,10},
- {1,12,24},
+ {8,48,32},
  'iaas_test_10@joq62-X550CA',log,"3/8 Running Hosts ",
  [[{running,"c1_varmdo","c1","192.168.1.201",22},
    {running,"asus_varmdo","joq62-X550CA","192.168.1.50",22}],
   init,iaas_server,76]}.
 {{2021,8,10},
- {1,12,24},
+ {8,48,32},
  'iaas_test_10@joq62-X550CA',log,"4/8 Missing Hosts ",
- [[{missing,"c0_varmdo","c0","192.168.1.200",22},
+ [[{missing,"c2_varmdo","c2","192.168.1.202",22},
    {missing,"asus_lgh","joq62-X550CA","192.168.0.100",22},
-   {missing,"c2_varmdo","c2","192.168.1.202",22},
+   {missing,"c0_varmdo","c0","192.168.1.200",22},
    {missing,"c2_lgh","c2","192.168.0.202",22},
    {missing,"c0_lgh","c0","192.168.0.200",22},
    {missing,"c1_lgh","c1","192.168.0.201",22}],
   init,iaas_server,77]}.
 {{2021,8,10},
- {1,12,24},
+ {8,48,32},
  'iaas_test_10@joq62-X550CA',log,"Create ClusterId ",
  ["test_10",create,cluster,154]}.
 {{2021,8,10},
- {1,12,36},
+ {8,48,45},
  'iaas_test_10@joq62-X550CA',log,"ssh ",
- ["rm -rf test_10",ok,"asus_varmdo",start_node,cluster,228]}.
+ ["rm -rf test_10",ok,"asus_varmdo",start_node,cluster,227]}.
 {{2021,8,10},
- {1,12,36},
+ {8,48,45},
  'iaas_test_10@joq62-X550CA',log,"ssh ",
- ["rm -rf test_10",ok,"c1_varmdo",start_node,cluster,228]}.
+ ["rm -rf test_10",ok,"c1_varmdo",start_node,cluster,227]}.
 {{2021,8,10},
- {1,12,48},
+ {8,48,57},
  'iaas_test_10@joq62-X550CA',log,"ssh ",
- ["mkdir test_10",ok,"asus_varmdo",start_node,cluster,231]}.
+ ["mkdir test_10",ok,"asus_varmdo",start_node,cluster,230]}.
 {{2021,8,10},
- {1,12,49},
+ {8,48,57},
  'iaas_test_10@joq62-X550CA',log,"ssh ",
- ["mkdir test_10",ok,"c1_varmdo",start_node,cluster,231]}.
+ ["mkdir test_10",ok,"c1_varmdo",start_node,cluster,230]}.
 {{2021,8,10},
- {1,12,49},
+ {8,48,58},
  'iaas_test_10@joq62-X550CA',log,"init stop ",
  [{badrpc,nodedown},
-  'joq62-X550CA_test_10@joq62-X550CA',start_node,cluster,242]}.
+  'joq62-X550CA_test_10@joq62-X550CA',start_node,cluster,241]}.
 {{2021,8,10},
- {1,12,50},
+ {8,48,58},
  'iaas_test_10@joq62-X550CA',log,"init stop ",
- [{badrpc,nodedown},c1_test_10@c1,start_node,cluster,242]}.
+ [{badrpc,nodedown},c1_test_10@c1,start_node,cluster,241]}.
 {{2021,8,10},
- {1,13,1},
+ {8,49,10},
  'iaas_test_10@joq62-X550CA',log,"ssh ",
  [ok,"nohup erl_call -s -sname joq62-X550CA_test_10 -c test_10_cookie &",
-  'joq62-X550CA_test_10@joq62-X550CA',start_node,cluster,249]}.
+  'joq62-X550CA_test_10@joq62-X550CA',start_node,cluster,248]}.
 {{2021,8,10},
- {1,13,2},
+ {8,49,11},
  'iaas_test_10@joq62-X550CA',log,"ssh ",
  [ok,"nohup erl_call -s -sname c1_test_10 -c test_10_cookie &",c1_test_10@c1,
-  start_node,cluster,249]}.
+  start_node,cluster,248]}.
 {{2021,8,10},
- {1,13,2},
+ {8,49,11},
  'iaas_test_10@joq62-X550CA',log,"5/8 Running Clusters ",
  [[{"test_10",
     [{"asus_varmdo",'joq62-X550CA_test_10@joq62-X550CA'},
      {"c1_varmdo",c1_test_10@c1}]}],
   init,iaas_server,87]}.
 {{2021,8,10},
- {1,13,2},
+ {8,49,11},
  'iaas_test_10@joq62-X550CA',log,"6/8 Missing Clusters ",
  [[],init,iaas_server,88]}.
 {{2021,8,10},
- {1,13,2},
+ {8,49,11},
  'iaas_test_10@joq62-X550CA',log,"7/8 Start cluster_status_interval() ",
  [init,iaas_server,90]}.
 {{2021,8,10},
- {1,13,2},
+ {8,49,11},
  'iaas_test_10@joq62-X550CA',log,"8/8 Successful starting of server",
  [iaas_server]}.
 {{2021,8,10},
- {1,13,7},
+ {8,49,14},
+ 'iaas_test_10@joq62-X550CA',debug,"PodNode info",
+ [{"pod_1628578154460875_test_10",
+   'pod_1628578154460875_test_10_joq62-X550CA@joq62-X550CA',
+   "test_10/pod_1628578154460875_test_10",'joq62-X550CA_test_10@joq62-X550CA',
+   "joq62-X550CA"},
+  create,pod,126]}.
+{{2021,8,10},
+ {8,49,15},
+ 'iaas_test_10@joq62-X550CA',debug,"PodNode info",
+ [{"pod_1628578155615587_test_10",
+   'pod_1628578155615587_test_10_joq62-X550CA@joq62-X550CA',
+   "test_10/pod_1628578155615587_test_10",'joq62-X550CA_test_10@joq62-X550CA',
+   "joq62-X550CA"},
+  create,pod,126]}.
+{{2021,8,10},
+ {8,49,15},
+ 'iaas_test_10@joq62-X550CA',debug,"AppDir",
+ ["test_10/pod_1628578155615587_test_10/mymath",load_start,pod,68]}.
+{{2021,8,10},
+ {8,49,16},
+ 'iaas_test_10@joq62-X550CA',log,"GitResult",
+ ['pod_1628578155615587_test_10_joq62-X550CA@joq62-X550CA',
+  "https://github.com/joq62/mymath.git","Cloning into 'mymath'...\n",
+  load_start,pod,73]}.
+{{2021,8,10},
+ {8,49,16},
+ 'iaas_test_10@joq62-X550CA',log,"MVResult",
+ ["mymath","test_10/pod_1628578155615587_test_10/mymath",[],load_start,pod,
+  75]}.
+{{2021,8,10},
+ {8,49,16},
+ 'iaas_test_10@joq62-X550CA',log,"Started",
+ [mymath,'pod_1628578155615587_test_10_joq62-X550CA@joq62-X550CA',load_start,
+  pod,85]}.
+{{2021,8,10},
+ {8,51,11},
+ 'iaas_test_10@joq62-X550CA',log,"Running Clusters ",
+ [["test_10"]]}.
+{{2021,8,10},
+ {8,51,15},
+ 'iaas_test_10@joq62-X550CA',log,"Running Hosts ",
+ [["c1_varmdo","asus_varmdo"]]}.
+{{2021,8,10},
+ {8,51,15},
+ 'iaas_test_10@joq62-X550CA',ticket,"Missing Hosts ",
+ [["c2_varmdo","c0_varmdo","asus_lgh","c2_lgh","c0_lgh","c1_lgh"]]}.
+{{2021,8,10},
+ {8,52,26},
  'iaas_test_10@joq62-X550CA',log,"Delete ClusterId ",
  ["test_10",delete,cluster,124]}.

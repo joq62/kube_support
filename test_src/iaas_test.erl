@@ -82,7 +82,6 @@ pass_0()->
     
     pod:delete(Ref),
     io:format("nodes() ~p~n",[{nodes(),?MODULE,?FUNCTION_NAME,?LINE}]),
-    cluster:delete("test_10"),
     
     ok.
 
@@ -92,7 +91,11 @@ pass_0()->
 %% Returns: non
 %% --------------------------------------------------------------------
 pass_1()->
-
+    {ok,Ref1}=pod:create("joq62-X550CA"),
+    {ok,_}=pod:load_start("mymath",Ref1),
+    [Node1]=sd:get("mymath"),
+    42=rpc:call(Node1,mymath,add,[20,22],2*1000),
+    
     ok.
 
 %% --------------------------------------------------------------------
@@ -158,7 +161,7 @@ setup()->
 %% -------------------------------------------------------------------    
 
 cleanup()->
-  
+    cluster:delete("test_10"),
 %    application:stop(oam),
     ok.
 %% --------------------------------------------------------------------

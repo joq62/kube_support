@@ -222,7 +222,6 @@ start_node(Pid,[{Alias,HostId,Ip,SshPort,UId,Pwd},NodeName,ClusterId,Cookie])->
     Pid!{check_node,{Result,Node,ClusterId,HostId,Ip,SshPort}}.
  
 start_node([{Alias,HostId,Ip,SshPort,UId,Pwd},NodeName,ClusterId,Cookie])->
- %   io:format("start_node ~p~n",[{?MODULE,?LINE,Alias,HostId,Ip,SshPort,NodeName,Cookie}]),
     RM_cluster="rm -rf "++ClusterId,
     RM_Result=rpc:call(node(),my_ssh,ssh_send,[Ip,SshPort,UId,Pwd,RM_cluster,2*5000],3*5000),
     ?PrintLog(log,"ssh ",[RM_cluster,RM_Result,Alias,?FUNCTION_NAME,?MODULE,?LINE]),
@@ -281,6 +280,12 @@ check_node([{Result,Node,ClusterId,HostId,Ip,SshPort}|T],Acc)->
 		  % timer:sleep(1000),
 		   case node_started(Node) of
 		       true->
+			       %Remove all cluster pods
+			 %  ?PrintLog(debug,"ssh ",[RM_cluster,RM_Result_cluster,Alias,?FUNCTION_NAME,?MODULE,?LINE]),
+%			   {ok,FileNames}=rpc:call(Node,file,list_dir,["."],5*1000),
+%			   DirsToDelete=[FileName||FileName<-FileNames,
+%						   ".pod_dir"==filename:extension(FileName)],
+%			   ok=del_dir(DirsToDelete,Node),
 			   {atomic,ok}=db_cluster:add(host_nodes,{Node,HostId}),
 			   [{ok,Node,HostId,ClusterId,Ip,SshPort}|Acc];
 		       false->
@@ -313,3 +318,17 @@ check_started(N,Vm,SleepTime,_Result)->
 		       false
 	      end,
     check_started(N-1,Vm,SleepTime,NewResult).
+
+
+del_dir(DirsToDelete,Node)->
+    del_dir(DirsToDelete,Node,[]).
+
+del_dir([],_Node,Result) ->
+    Result;
+del_dir([Dir|T],Node,[]) ->
+    Result=rpc:call(Node,os,cmd,["rm -r "++Dir],2*1000),
+    timer:sleep(200),
+    del_dir(T,Node,Result);
+    
+del_dir(_DirsToDelete,_Node,SomeError)->
+    SomeError.    
