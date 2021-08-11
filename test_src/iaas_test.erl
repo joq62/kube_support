@@ -92,8 +92,11 @@ pass_0()->
 %% --------------------------------------------------------------------
 pass_1()->
     {ok,Ref1}=pod:create("joq62-X550CA"),
+    PodSpecId="mymath",
     {ok,_}=pod:load_start("mymath",Ref1),
-    [Node1]=sd:get("mymath"),
+    timer:sleep(100),
+    App=mymath,
+    [Node1]=sd:get(App),
     42=rpc:call(Node1,mymath,add,[20,22],2*1000),
     
     ok.

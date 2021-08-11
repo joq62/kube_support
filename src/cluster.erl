@@ -318,17 +318,3 @@ check_started(N,Vm,SleepTime,_Result)->
 		       false
 	      end,
     check_started(N-1,Vm,SleepTime,NewResult).
-
-
-del_dir(DirsToDelete,Node)->
-    del_dir(DirsToDelete,Node,[]).
-
-del_dir([],_Node,Result) ->
-    Result;
-del_dir([Dir|T],Node,[]) ->
-    Result=rpc:call(Node,os,cmd,["rm -r "++Dir],2*1000),
-    timer:sleep(200),
-    del_dir(T,Node,Result);
-    
-del_dir(_DirsToDelete,_Node,SomeError)->
-    SomeError.    
