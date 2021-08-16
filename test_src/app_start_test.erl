@@ -60,7 +60,6 @@ setup()->
     MonitorNodeName=atom_to_list(MonitorNodeNameAtom),
     {ok,HostId}=inet:gethostname(),
     MonitorNode=list_to_atom(MonitorNodeName++"@"++HostId),
-    io:format("glurk ~p~n",[{ClusterId,MonitorNode,?MODULE,?LINE}]),
     Env=[{cluster_id,ClusterIdAtom},{monitor_node,MonitorNode}],
     ok=application:set_env([{support,Env},
 			 {kubelet,Env},
@@ -68,7 +67,9 @@ setup()->
     ok=application:start(support),
     ok=application:start(kubelet),
     ok=application:start(etcd),
-    
+
+   
+    io:format("cluster:delete(lgh) ~p~n",[{cluster:delete("lgh"),?MODULE,?LINE}]),
    {ok,_}=iaas:start(),
     ok.
 

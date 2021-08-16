@@ -46,13 +46,6 @@
 %% Description: Initiate the eunit tests, set upp needed processes etc
 %% Returns: non
 %% --------------------------------------------------------------------
-
-
-%% --------------------------------------------------------------------
-%% Function:start/0 
-%% Description: Initiate the eunit tests, set upp needed processes etc
-%% Returns: non
-%% --------------------------------------------------------------------
 strive_desired_state(ClusterId)->
    %   io:format("~p~n",[{?FUNCTION_NAME,?MODULE,?LINE}]),
     {{running,_R},{missing,M}}=cluster:status_clusters(ClusterId),
@@ -133,19 +126,13 @@ delete(ClusterId)->
 	  []->
 	      {error,[eexists,ClusterId]};
 	  ClusterInfo->
-		case db_cluster:member(ClusterId) of
-		    false->
-			?PrintLog(ticket,"not loaded",[ClusterId,?FUNCTION_NAME,?MODULE,?LINE]),
-			{error,["not loaded",ClusterId,?FUNCTION_NAME,?MODULE,?LINE]};
-		    true->
-			[{ClusterId,ControllerAlias,_NumWorkers,WorkerAlias,_Cookie,_ControllerNode}]=ClusterInfo,
-			H1=[XAlias||XAlias<-WorkerAlias, 
-				    false==lists:member(XAlias,ControllerAlias)],
-			AllAlias=lists:append(ControllerAlias,H1),
-			AllHostInfo=[db_host_info:read(Alias)||{Alias,_HostId}<-AllAlias],
-			NodesToKill=[?HostNode(ClusterId,HostId)||[{_Alias,HostId,_Ip,_SshPort,_UId,_Pwd}]<-AllHostInfo],
-			[{Node,ClusterId,delete_cluster(Node,ClusterId)}||Node<-NodesToKill]
-		end
+		[{ClusterId,ControllerAlias,_NumWorkers,WorkerAlias,_Cookie,_ControllerNode}]=ClusterInfo,
+		 H1=[XAlias||XAlias<-WorkerAlias, 
+			     false==lists:member(XAlias,ControllerAlias)],
+		AllAlias=lists:append(ControllerAlias,H1),
+		AllHostInfo=[db_host_info:read(Alias)||{Alias,_HostId}<-AllAlias],
+		NodesToKill=[?HostNode(ClusterId,HostId)||[{_Alias,HostId,_Ip,_SshPort,_UId,_Pwd}]<-AllHostInfo],
+		[{Node,ClusterId,delete_cluster(Node,ClusterId)}||Node<-NodesToKill]	      
 	end,
     R.
 delete_cluster(Node,ClusterId)->
@@ -158,7 +145,9 @@ delete_cluster(Node,ClusterId)->
 %% Description: Initiate the eunit tests, set upp needed processes etc
 %% Returns: non
 %% --------------------------------------------------------------------
-    
+%create(ClusterId)->
+ %   create(ClusterId,controller).
+			 
 create(ClusterId)->
     F1=fun start_node/2,
     F2=fun check_node/3,
