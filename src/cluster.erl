@@ -133,11 +133,11 @@ delete(ClusterId)->
 	  []->
 	      {error,[eexists,ClusterId]};
 	  ClusterInfo->
-		case db_cluster:member(ClusterId) of
-		    false->
-			?PrintLog(ticket,"not loaded",[ClusterId,?FUNCTION_NAME,?MODULE,?LINE]),
-			{error,["not loaded",ClusterId,?FUNCTION_NAME,?MODULE,?LINE]};
-		    true->
+	%	case db_cluster:member(ClusterId) of
+	%	    false->
+	%		?PrintLog(ticket,"not loaded",[ClusterId,?FUNCTION_NAME,?MODULE,?LINE]),
+	%		{error,["not loaded",ClusterId,?FUNCTION_NAME,?MODULE,?LINE]};
+	%	    true->
 			[{ClusterId,ControllerAlias,_NumWorkers,WorkerAlias,_Cookie,_ControllerNode}]=ClusterInfo,
 			H1=[XAlias||XAlias<-WorkerAlias, 
 				    false==lists:member(XAlias,ControllerAlias)],
@@ -145,13 +145,13 @@ delete(ClusterId)->
 			AllHostInfo=[db_host_info:read(Alias)||{Alias,_HostId}<-AllAlias],
 			NodesToKill=[?HostNode(ClusterId,HostId)||[{_Alias,HostId,_Ip,_SshPort,_UId,_Pwd}]<-AllHostInfo],
 			[{Node,ClusterId,delete_cluster(Node,ClusterId)}||Node<-NodesToKill]
-		end
+	%	end
 	end,
     R.
 delete_cluster(Node,ClusterId)->
     rpc:call(Node,os,cmd,["rm -rf "++ClusterId],5*1000),
     rpc:call(Node,init,stop,[]),
-    {atomic,ok}=db_cluster:remove(host_nodes,Node),
+    db_cluster:remove(host_nodes,Node),
     {stopped,Node,ClusterId}.
 %% --------------------------------------------------------------------
 %% Function:start/0 
@@ -163,6 +163,7 @@ create(ClusterId)->
     F1=fun start_node/2,
     F2=fun check_node/3,
     ?PrintLog(log,"Create ClusterId ",[ClusterId,?FUNCTION_NAME,?MODULE,?LINE]),
+    
     R=case db_cluster_info:read(ClusterId) of
 	  []->
 	      ?PrintLog(ticket,"ClusterId eexists",[{error,[eexists,ClusterId]},?FUNCTION_NAME,?MODULE,?LINE]),
@@ -170,23 +171,27 @@ create(ClusterId)->
 	  ClusterInfo->
 	      [{ClusterId,ControllerAlias,_NumWorkers,WorkerAlias,Cookie,_ControllerNode}]=ClusterInfo,
 	   %   NodeName=?KubeletNodeName(ClusterId),  %ClusterId++"_"++"kubelet",
-	
+	      % Create db_cluster:create(
+	      {atomic,ok}=db_cluster:create(ClusterId,undefined,[],Cookie,[],[]),
 	      H1=[XAlias||XAlias<-WorkerAlias,
 			  false==lists:member(XAlias,ControllerAlias)],
 	      AllAlias=lists:append(ControllerAlias,H1),
-	 %     ?PrintLog(debug,"AllAlias",[AllAlias,?FUNCTION_NAME,?MODULE,?LINE]),
+	      ?PrintLog(debug,"AllAlias",[AllAlias,?FUNCTION_NAME,?MODULE,?LINE]),
 	      R1=create_list_to_reduce(AllAlias,ClusterId,Cookie),	     
 	      case R1 of
 		  {error,ErrAlias}->
 		      ?PrintLog(ticket,"reduce list",[{error,ErrAlias},?FUNCTION_NAME,?MODULE,?LINE]),
 		      {error,ErrAlias};
 		  {ok,ListToReduce}->
+		      ?PrintLog(debug,"ListToReduce",[ListToReduce,?FUNCTION_NAME,?MODULE,?LINE]),
 		      StartResult=mapreduce:start(F1,F2,[],ListToReduce),
+		      ?PrintLog(debug,"StartResult",[StartResult,?FUNCTION_NAME,?MODULE,?LINE]),
 		    %  io:format("StartResult ~p~n",[{?MODULE,?LINE,StartResult}]), 
 		      {ClusterId,StartResult}
 	      
 	      end
       end,
+    
     R.
 
 create_list_to_reduce(AllAlias,ClusterId,Cookie)->
@@ -194,27 +199,32 @@ create_list_to_reduce(AllAlias,ClusterId,Cookie)->
 create_list_to_reduce([],_ClusterId,_Cookie,Acc)->
     case [{error,Reason}||{error,Reason}<-Acc] of
 	[]->
-	%    ReduceInfo=lists:append([XInfo||{ok,XInfo}<-Acc]),
-	    ReduceInfo=[XInfo||{ok,XInfo}<-Acc],
+	   % ReduceInfo=lists:append([XInfo||{ok,XInfo}<-Acc]),
+	    %ReduceInfo=lists:append([XInfo||{_,XInfo}<-Acc]),  
+	    ReduceInfo=[XInfo||{_,XInfo}<-Acc],
+	    
 	    {ok,ReduceInfo};
 	ErrList->
 	    {error,ErrList}
     end;
 create_list_to_reduce([{Alias,HostId}|T],ClusterId,Cookie,Acc)->
- %   ?PrintLog(debug," ",[Cookie,NodeName,?FUNCTION_NAME,?MODULE,?LINE]),
+    ?PrintLog(debug,"Alias,HostId",[Alias,HostId,?FUNCTION_NAME,?MODULE,?LINE]),
     Info=case db_host_info:read(Alias) of
 	     []->
 		 {error,[eexists,Alias]};
 	     [AliasInfo]->
+		 
 		 NodeName=?HostNodeName(ClusterId,HostId),
-		 %Check if allready started
+						%Check if allready started
 		 case net_adm:ping(?HostNode(ClusterId,HostId)) of
 		     pang->
 			 {ok,[AliasInfo,NodeName,ClusterId,Cookie]};
 		     pong->
 			 {already_started,[AliasInfo,NodeName,ClusterId,Cookie]}
 		 end
-	 end,
+		     
+    end,
+    ?PrintLog(debug,"Info",[Info,?FUNCTION_NAME,?MODULE,?LINE]),
     create_list_to_reduce(T,ClusterId,Cookie,[Info|Acc]).    
 
 %% --------------------------------------------------------------------
@@ -286,9 +296,7 @@ check_node([{Result,Node,ClusterId,HostId,Ip,SshPort}|T],Acc)->
  %   ?PrintLog(debug,"Cookie after created ",[rpc:call(Node,erlang,get_cookie,[]),Node,?FUNCTION_NAME,?MODULE,?LINE]),
     NewAcc=case Result of
 	       ok->
-		   % Error fix 
-		 %  erlang:set_cookie(node(),abc),
-		  % timer:sleep(1000),
+		   
 		   case node_started(Node) of
 		       true->
 			       %Remove all cluster pods
@@ -297,7 +305,8 @@ check_node([{Result,Node,ClusterId,HostId,Ip,SshPort}|T],Acc)->
 %			   DirsToDelete=[FileName||FileName<-FileNames,
 %						   ".pod_dir"==filename:extension(FileName)],
 %			   ok=del_dir(DirsToDelete,Node),
-			   {atomic,ok}=db_cluster:add(host_nodes,{Node,HostId}),
+			   ClusterAddResult=db_cluster:add(host_nodes,{Node,HostId}),
+			   ?PrintLog(debug,"  {atomic,ok}",[ClusterAddResult,Node,HostId,?FUNCTION_NAME,?MODULE,?LINE]),
 			   [{ok,Node,HostId,ClusterId,Ip,SshPort}|Acc];
 		       false->
 			   ?PrintLog(ticket,"Failed to connect to node",[Node,HostId,?FUNCTION_NAME,?MODULE,?LINE]),

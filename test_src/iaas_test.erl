@@ -76,6 +76,7 @@ start()->
 pass_0()->
     os:cmd("rm -rf pod_*"),
     timer:sleep(3000),
+    true=wait_for_cluster(60,1000,false),
     {ok,Ref}=pod:create("joq62-X550CA"),
     timer:sleep(1000),
     io:format("nodes() ~p~n",[{nodes(),?MODULE,?FUNCTION_NAME,?LINE}]),
@@ -84,6 +85,19 @@ pass_0()->
     io:format("nodes() ~p~n",[{nodes(),?MODULE,?FUNCTION_NAME,?LINE}]),
     
     ok.
+wait_for_cluster(_N,_Time,true)->
+    true;
+wait_for_cluster(0,_Time,R)->
+    R;
+wait_for_cluster(N,T,false) ->
+    New=case iaas:status_all_clusters() of
+	    {{running,[]},{missing,_}}->
+		timer:sleep(T),
+		false;
+	    {{running,Running},{missing,_}}->
+		true
+	end,
+    wait_for_cluster(N-1,T,New).
 
 %% --------------------------------------------------------------------
 %% Function:start/0 

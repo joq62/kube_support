@@ -28,7 +28,7 @@
 %% --------------------------------------------------------------------
 %% Definitions 
 %-define(WantedStateInterval,60*1000).
--define(ClusterStatusInterval,2*60*1000).
+-define(ClusterStatusInterval,1*30*1000).
 %% --------------------------------------------------------------------
 
 
@@ -281,19 +281,26 @@ cl_strive_desired_state()->
     {ok,ClusterIdAtom}=application:get_env(cluster_id),
     ClusterId=atom_to_list(ClusterIdAtom),
     rpc:call(node(),cluster,strive_desired_state,[ClusterId],90*1000),
-
-    ClusterStatus=rpc:call(node(),cluster,status_clusters,[],60*1000),
-    {{running,RunningClusters},{missing,MissingClusters}}=ClusterStatus,
-    case MissingClusters of
-	[]->
-	    PrintRunningClusters=[XClusterId||{XClusterId,_}<-RunningClusters],
-	    ?PrintLog(log,"Running Clusters ",[PrintRunningClusters]);
-	_->
-	    PrintRunningClusters=[XClusterId||{XClusterId,_}<-RunningClusters],
-	    ?PrintLog(log,"Running Clusters ",[PrintRunningClusters]),
-	    PrintMissingClusters=[XClusterId||{XClusterId,_}<-MissingClusters],
-	    ?PrintLog(ticket,"Missing Clusters ",[PrintMissingClusters])
-    end,
+    ClusterStatus=case rpc:call(node(),cluster,status_clusters,[],60*1000) of
+		      {error,["ClusterID eexists"]}->
+			  ?PrintLog(ticket,"error",["ClusterID eexists",?FUNCTION_NAME,?MODULE,?LINE]),
+			  {{running,[]},{missing,[]}};
+		      {badrpc,Reason}->
+			  ?PrintLog(ticket,"badrpc",[Reason,?FUNCTION_NAME,?MODULE,?LINE]),
+			  {{running,[]},{missing,[]}};
+		      {{running,RunningClusters},{missing,MissingClusters}}->
+			  case MissingClusters of
+			      []->
+				  PrintRunningClusters=[XClusterId||{XClusterId,_}<-RunningClusters],
+				  ?PrintLog(log,"Running Clusters ",[PrintRunningClusters]);
+			      _->
+				  PrintRunningClusters=[XClusterId||{XClusterId,_}<-RunningClusters],
+				  ?PrintLog(log,"Running Clusters ",[PrintRunningClusters]),
+				  PrintMissingClusters=[XClusterId||{XClusterId,_}<-MissingClusters],
+				  ?PrintLog(ticket,"Missing Clusters ",[PrintMissingClusters])
+			  end,
+			  {{running,RunningClusters},{missing,MissingClusters}}
+		  end,
     rpc:cast(node(),iaas,cluster_strive_desired_state,[ClusterStatus]).
 
 %% --------------------------------------------------------------------
