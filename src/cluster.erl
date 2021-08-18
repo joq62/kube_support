@@ -26,7 +26,10 @@
 -define(KubeletNode(ClusterId,Alias,HostId),list_to_atom(ClusterId++"_"++"kubelet"++"_"++Alias++"@"++HostId)).
 %% --------------------------------------------------------------------
 -export([
-       	 strive_desired_state/0,
+       	 
+	 start_node/1,
+	     
+	 strive_desired_state/0,
        	 strive_desired_state/1,
 
 	 status_clusters/0,
