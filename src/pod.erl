@@ -73,13 +73,13 @@ load(WantedPodSpec,HostNode,PodNode,PodDir)->
 
 start(PodNode,WantedPodSpec)->
     App=list_to_atom(db_pod_spec:app_id(WantedPodSpec)),
-    Result=case rpc:call(PodNode,application,start,[App],5*1000) of
+    Result=case rpc:call(PodNode,application,start,[App],2*60*1000) of
 	       ok->
 		   {ok,[App]};
 	       {error,{already_started,App}}->
 		   {ok,[already_started,App]};
 	       {Error,Reason}->
-		   {Error,Reason,application,PodNode,start,App,?FUNCTION_NAME,?MODULE,?LINE}
+		   {Error,[Reason,application,PodNode,start,App,?FUNCTION_NAME,?MODULE,?LINE]}
 	   end,
     Result.
 
