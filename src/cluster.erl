@@ -74,7 +74,7 @@ strive_desired_state()->
 %% --------------------------------------------------------------------
 
 status_clusters()->
-    ClusterId=db_cluster:read(cluster_id),
+    ClusterId=application:get_env(cluster_id),
     status_clusters(ClusterId).
 status_clusters(ClusterId)->
     R=case db_cluster_info:read(ClusterId) of
