@@ -48,7 +48,7 @@
 %% --------------------------------------------------------------------
 load(WantedPodSpec,HostNode,PodNode,PodDir)->
     AppId=db_pod_spec:app_id(WantedPodSpec),
-    LoadedApps=rpc:call(PodNode,application,loaded_applications,[],3*1000),
+    LoadedApps=rpc:call(PodNode,application,loaded_applications,[],25*1000),
    % ?PrintLog(debug,"LoadedApps ",[LoadedApps,PodNode,?FUNCTION_NAME,?MODULE,?LINE]),
     Result=case lists:keymember(list_to_atom(AppId),1,LoadedApps) of
 	       true->
@@ -59,12 +59,12 @@ load(WantedPodSpec,HostNode,PodNode,PodDir)->
 		   AppDir=filename:join(PodDir,AppId),
 		   AppEbin=filename:join(AppDir,"ebin"),
 		   App=list_to_atom(AppId),
-		   rpc:call(HostNode,os,cmd,["rm -rf "++AppId],5*1000),
-		   GitResult=rpc:call(HostNode,os,cmd,["git clone "++GitPath],5*1000),
+		   rpc:call(HostNode,os,cmd,["rm -rf "++AppId],25*1000),
+		   GitResult=rpc:call(HostNode,os,cmd,["git clone "++GitPath],25*1000),
 		   ?PrintLog(log,"GitResult",[PodNode,GitPath,GitResult,?FUNCTION_NAME,?MODULE,?LINE]),
-		   MVResult=rpc:call(HostNode,os,cmd,["mv "++AppId++" "++AppDir],5*1000),
+		   MVResult=rpc:call(HostNode,os,cmd,["mv "++AppId++" "++AppDir],25*1000),
 		   ?PrintLog(log,"MVResult",[AppId,AppDir,MVResult,?FUNCTION_NAME,?MODULE,?LINE]),
-		   true=rpc:call(PodNode,code,add_patha,[AppEbin],2*1000),
+		   true=rpc:call(PodNode,code,add_patha,[AppEbin],22*1000),
 		   AppEnv=db_pod_spec:app_env(WantedPodSpec),
 		   ok=rpc:call(PodNode,application,set_env,[[{App,AppEnv}]]),		       
 		   {ok,[]}
@@ -79,7 +79,7 @@ start(PodNode,WantedPodSpec)->
 	       {error,{already_started,App}}->
 		   {ok,[already_started,App]};
 	       {Error,Reason}->
-		   {Error,Reason}
+		   {Error,Reason,application,PodNode,start,App,?FUNCTION_NAME,?MODULE,?LINE}
 	   end,
     Result.
 
