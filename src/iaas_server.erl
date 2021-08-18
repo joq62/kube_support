@@ -278,8 +278,9 @@ check_status_hosts()->
     rpc:cast(node(),iaas,status_hosts,[Status]).
 
 cl_strive_desired_state()->
-    {ok,ClusterIdAtom}=application:get_env(cluster_id),
-    ClusterId=atom_to_list(ClusterIdAtom),
+ %   {ok,ClusterIdAtom}=application:get_env(cluster_id),
+ %   ClusterId=atom_to_list(ClusterIdAtom),
+    {ok,ClusterId}=application:get_env(cluster_id),
     rpc:call(node(),cluster,strive_desired_state,[ClusterId],90*1000),
     ClusterStatus=case rpc:call(node(),cluster,status_clusters,[],60*1000) of
 		      {error,["ClusterID eexists"]}->
