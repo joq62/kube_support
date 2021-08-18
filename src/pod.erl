@@ -61,9 +61,9 @@ load(WantedPodSpec,HostNode,PodNode,PodDir)->
 		   App=list_to_atom(AppId),
 		   rpc:call(HostNode,os,cmd,["rm -rf "++AppId],25*1000),
 		   GitResult=rpc:call(HostNode,os,cmd,["git clone "++GitPath],25*1000),
-		   ?PrintLog(log,"GitResult",[PodNode,GitPath,GitResult,?FUNCTION_NAME,?MODULE,?LINE]),
+	%	   ?PrintLog(log,"GitResult",[PodNode,GitPath,GitResult,?FUNCTION_NAME,?MODULE,?LINE]),
 		   MVResult=rpc:call(HostNode,os,cmd,["mv "++AppId++" "++AppDir],25*1000),
-		   ?PrintLog(log,"MVResult",[AppId,AppDir,MVResult,?FUNCTION_NAME,?MODULE,?LINE]),
+	%	   ?PrintLog(log,"MVResult",[AppId,AppDir,MVResult,?FUNCTION_NAME,?MODULE,?LINE]),
 		   true=rpc:call(PodNode,code,add_patha,[AppEbin],22*1000),
 		   AppEnv=db_pod_spec:app_env(WantedPodSpec),
 		   ok=rpc:call(PodNode,application,set_env,[[{App,AppEnv}]]),		       
@@ -73,6 +73,7 @@ load(WantedPodSpec,HostNode,PodNode,PodDir)->
 
 start(PodNode,WantedPodSpec)->
     App=list_to_atom(db_pod_spec:app_id(WantedPodSpec)),
+    ?PrintLog(debug,"App,PodNode,WantedPodSpec",[App,PodNode,WantedPodSpec,?FUNCTION_NAME,?MODULE,?LINE]),
     Result=case rpc:call(PodNode,application,start,[App],2*60*1000) of
 	       ok->
 		   {ok,[App]};
