@@ -92,20 +92,20 @@ load_start(WantedPodSpec,Reference,Type)->
 		%   ?PrintLog(ticket," Reference eexists",[Reference,Type,?FUNCTION_NAME,?MODULE,?LINE]),
 		   {error,["Reference eexists",Reference,Type,?FUNCTION_NAME,?MODULE,?LINE]};
 	       [{Reference,PodNode,PodDir,PodSpecs,HostNode,Created}]->
-		   PodLoadResult=rpc:call(node(),pod,load,[WantedPodSpec,HostNode,PodNode,PodDir],5*1000),
+		   PodLoadResult=rpc:call(node(),pod,load,[WantedPodSpec,HostNode,PodNode,PodDir],25*1000),
 		   case PodLoadResult  of
 		       {ok,_}->
-			   PodstartResult=rpc:call(node(),pod,start,[PodNode,WantedPodSpec],5*1000),
+			   PodstartResult=rpc:call(node(),pod,start,[PodNode,WantedPodSpec],25*1000),
 		%	   ?PrintLog(debug,"PodstartResult",[PodstartResult,?FUNCTION_NAME,?MODULE,?LINE]),
 			   case PodstartResult of
 			       {ok,Reason2}->
 				   {atomic,ok}=db_pod:add_spec(Reference,WantedPodSpec),
 				   {ok,Reason2};
 			       {Error,Reason2}->
-				   {Error,Reason2}
+				   {Error,Reason2,pod,start,?FUNCTION_NAME,?MODULE,?LINE}
 			   end;
 		       {Error,Reason}->
-			   {Error,Reason}
+			   {Error,Reason,pod,load,?FUNCTION_NAME,?MODULE,?LINE}
 		   end;
 	       UnMatched ->
 		   ?PrintLog(ticket,"UnMatched",[UnMatched,WantedPodSpec,Reference,?FUNCTION_NAME,?MODULE,?LINE]),
