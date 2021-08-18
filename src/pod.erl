@@ -57,7 +57,6 @@ load(WantedPodSpec,HostNode,PodNode,PodDir)->
 	       false ->
 		   GitPath=db_pod_spec:git_path(WantedPodSpec),
 		   AppDir=filename:join(PodDir,AppId),
-		   ?PrintLog(debug,"AppDir",[AppDir,?FUNCTION_NAME,?MODULE,?LINE]),
 		   AppEbin=filename:join(AppDir,"ebin"),
 		   App=list_to_atom(AppId),
 		   rpc:call(HostNode,os,cmd,["rm -rf "++AppId],5*1000),
@@ -88,22 +87,19 @@ load_start(WantedPodSpec,Reference)->
     ?PrintLog(log,"load_start",[WantedPodSpec,Reference,?FUNCTION_NAME,?MODULE,?LINE]),
     load_start(WantedPodSpec,Reference,worker_nodes).
 load_start(WantedPodSpec,Reference,Type)->
-    Result=case [{XReference,PodNode,PodDir,HostNode,WantedHostId}||{XReference,PodNode,PodDir,HostNode,WantedHostId}<-db_cluster:read(Type),
-								   Reference==XReference]of
+    Result=case db_pod:read(Reference) of
 	       []->
 		%   ?PrintLog(ticket," Reference eexists",[Reference,Type,?FUNCTION_NAME,?MODULE,?LINE]),
 		   {error,["Reference eexists",Reference,Type,?FUNCTION_NAME,?MODULE,?LINE]};
-	       [{Reference,PodNode,PodDir,HostNode,_WantedHostId}]->
-		   ?PrintLog(debug,"ClusterInfo",[Reference,PodNode,PodDir,HostNode,_WantedHostId,?FUNCTION_NAME,?MODULE,?LINE]),
+	       [{Reference,PodNode,PodDir,PodSpecs,HostNode,Created}]->
 		   PodLoadResult=rpc:call(node(),pod,load,[WantedPodSpec,HostNode,PodNode,PodDir],5*1000),
-		%   ?PrintLog(debug,"PodLoadResult",[PodLoadResult,?FUNCTION_NAME,?MODULE,?LINE]),
-		   
 		   case PodLoadResult  of
 		       {ok,_}->
 			   PodstartResult=rpc:call(node(),pod,start,[PodNode,WantedPodSpec],5*1000),
 		%	   ?PrintLog(debug,"PodstartResult",[PodstartResult,?FUNCTION_NAME,?MODULE,?LINE]),
 			   case PodstartResult of
 			       {ok,Reason2}->
+				   {atomic,ok}=db_pod:add_spec(Reference,WantedPodSpec),
 				   {ok,Reason2};
 			       {Error,Reason2}->
 				   {Error,Reason2}
@@ -131,7 +127,7 @@ load_start(WantedPodSpec,Reference,Type)->
 create(WantedHostId)->
     create(WantedHostId,worker_nodes).
 create(WantedHostId,Type)->
-    ?PrintLog(debug,"Start Create pod",[WantedHostId,Type,?FUNCTION_NAME,?MODULE,?LINE]),
+%    ?PrintLog(debug,"Start Create pod",[WantedHostId,Type,?FUNCTION_NAME,?MODULE,?LINE]),
     Result=case [HostNode||{HostNode,HostId}<-db_cluster:read(host_nodes),
 			   HostId==WantedHostId] of
 	       []->
@@ -139,23 +135,23 @@ create(WantedHostId,Type)->
 		   erlang:exit({"WantedHost eexists",[WantedHostId,?FUNCTION_NAME,?MODULE,?LINE]}),
 		   {error,["WantedHost eexists",WantedHostId,?FUNCTION_NAME,?MODULE,?LINE]};
 	       [HostNode]->
-		   CookieAtom=db_cluster:read(cookie),
+		   Cookie=db_cluster:read(cookie),
 		   ClusterId=db_cluster:read(cluster_id),
 		   SystemTime=integer_to_list(erlang:system_time(microsecond)),
 		   NodeName="pod_"++SystemTime++"_"++ClusterId++"_"++WantedHostId,
 		   PodDirName="pod_"++SystemTime++"_"++ClusterId,
 		   PodDir=filename:join(ClusterId,PodDirName),
 		   Reference=PodDirName,
-		   Args="-setcookie "++atom_to_list(CookieAtom),
+		   Args="-setcookie "++Cookie,
 		   rpc:call(HostNode,os,cmd,["rm -rf "++PodDir],5*1000),
 		   ok=rpc:call(HostNode,file,make_dir,[PodDir],5*1000),
 		   {ok,PodNode}=rpc:call(HostNode,slave,start,[WantedHostId,NodeName,Args],5*1000),
 		   pong=net_adm:ping(PodNode),
-		   {atomic,ok}=db_cluster:add(Type,{Reference,PodNode,PodDir,HostNode,WantedHostId}),
-		   ?PrintLog(debug,"PodNode info",[{Reference,PodNode,PodDir,HostNode,WantedHostId},?FUNCTION_NAME,?MODULE,?LINE]),
+		   {atomic,ok}=db_pod:create(Reference,PodNode,PodDir,[],HostNode,{date(),time()}),
+%		   ?PrintLog(debug,"PodNode info",[{Reference,PodNode,PodDir,HostNode,WantedHostId},?FUNCTION_NAME,?MODULE,?LINE]),
 		   {ok,Reference}
 	   end,
-    ?PrintLog(debug,"Create pod Result",[Result,WantedHostId,?FUNCTION_NAME,?MODULE,?LINE]),
+ %   ?PrintLog(debug,"Create pod Result",[Result,WantedHostId,?FUNCTION_NAME,?MODULE,?LINE]),
     Result.
 
 delete(DeleteReference)->
@@ -170,7 +166,7 @@ delete(DeleteReference,Type)->
 		   
 		   rpc:call(HostNode,os,cmd,["rm -rf "++PodDir],2*1000),
 		   rpc:call(HostNode,slave,stop,[PodNode],2*1000),
-		   {atomic,ok}=db_cluster:remove(Type,{Reference,PodNode,PodDir,HostNode,WantedHostId}),
+		   {atomic,ok}=db_pod:delete(DeleteReference),
 		   ok
 	   end,
     Result.

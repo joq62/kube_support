@@ -44,7 +44,7 @@ status_all_hosts()->
     F2=fun check_host_status/3,
     
     AllHosts=db_host_info:read_all(),
-  %  io:format("AllHosts = ~p~n",[{?MODULE,?LINE,AllHosts}]),
+   % io:format("AllHosts = ~p~n",[{?MODULE,?LINE,AllHosts}]),
     Status=mapreduce:start(F1,F2,[],AllHosts),
   %  io:format("Status = ~p~n",[{?MODULE,?LINE,Status}]),
     Running=[{running,Alias,HostId,Ip,Port}||{running,Alias,HostId,Ip,Port}<-Status],
@@ -52,7 +52,7 @@ status_all_hosts()->
     {ok,Running,Missing}.
 
 get_hostname(Parent,{Alias,HostId,IpAddr,Port,User,PassWd})->    
-  %  io:format("get_hostname= ~p~n",[{?MODULE,?LINE,HostId,User,PassWd,IpAddr,Port}]),
+   % io:format("get_hostname= ~p~n",[{?MODULE,?LINE,HostId,User,PassWd,IpAddr,Port}]),
     Msg="hostname",
     Result=rpc:call(node(),my_ssh,ssh_send,[IpAddr,Port,User,PassWd,Msg, 5*1000],4*1000),
   %  io:format("Result, HostId= ~p~n",[{?MODULE,?LINE,Result,HostId}]),
