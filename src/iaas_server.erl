@@ -75,15 +75,17 @@ init([]) ->
     end,
     ?PrintLog(log,"3/8 Running Hosts ",[RunningHosts,?FUNCTION_NAME,?MODULE,?LINE]),
     ?PrintLog(log,"4/8 Missing Hosts ",[MissingHosts,?FUNCTION_NAME,?MODULE,?LINE]),
-    rpc:call(node(),cluster,strive_desired_state,[],50*1000),
-    ClusterStatus=rpc:call(node(),cluster,status_clusters,[],50*1000),
-    case ClusterStatus of
-	{{running,RunningClusters},{missing,MissingClusters}}->
-	    ok;
-	_->
-	    RunningClusters=[],
-	    MissingClusters=[]
-    end,
+%    rpc:call(node(),cluster,strive_desired_state,[],50*1000),
+%    ClusterStatus=rpc:call(node(),cluster,status_clusters,[],50*1000),
+%    case ClusterStatus of
+%	{{running,RunningClusters},{missing,MissingClusters}}->
+%	    ok;
+%	_->
+%	    RunningClusters=[],
+%	    MissingClusters=[]
+ %   end,
+    RunningClusters=[],
+    MissingClusters=[],
     ?PrintLog(log,"5/8 Running Clusters ",[RunningClusters,?FUNCTION_NAME,?MODULE,?LINE]),
     ?PrintLog(log,"6/8 Missing Clusters ",[MissingClusters,?FUNCTION_NAME,?MODULE,?LINE]),
 
@@ -260,7 +262,8 @@ code_change(_OldVsn, State, _Extra) ->
 cluster_status_interval()->
     timer:sleep(?ClusterStatusInterval),
     spawn(fun()->check_status_hosts() end),
-    spawn(fun()->cl_strive_desired_state() end).
+    ok.
+  %  spawn(fun()->cl_strive_desired_state() end).
 
 check_status_hosts()->
    Status=case rpc:call(node(),host,status_all_hosts,[],10*1000) of

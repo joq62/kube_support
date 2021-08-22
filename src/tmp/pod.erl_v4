@@ -21,16 +21,19 @@
 
 %% --------------------------------------------------------------------
 
--export([create_node/7,    %Ip,SshPort,UId,Pwd,HostId,NodeName,Cookie,OtherArgs
-	 delete_node/1,
-	 delete_node/2,
-	 create_slave/4, %HostNode,HostId,SlaveName,ErlArgs
-	 create_slave/5,    %HostNode,HostId,SlaveName,PodDir,ErlArgs
-	 delete_slave/3, %(HostNode,PodNode,PodDir)
-	 delete_slave/2 %(HostNode,PodNode)
+-export([create_ssh/7,    %Ip,SshPort,UId,Pwd,HostId,NodeName,Cookie,OtherArgs
+	 create_wo_dir/4, %HostNode,HostId,SlaveName,ErlArgs
+	 create_w_dir/5,    %HostNode,HostId,SlaveName,PodDir,ErlArgs
+	 delete_w_dir/3, %(HostNode,PodNode,PodDir)
+	 delete_wo_dir/2 %(HostNode,PodNode)
 	]).
 
 -export([
+       	 create/4,
+	 delete/4,
+       	 create/5,
+	 delete/5,
+
 	 load/4,
 	 start/2,
 	 load_start/2,
@@ -136,7 +139,7 @@ delete_node(Node,Dir)->
     rpc:call(Node,os,cmd,["rm -rf "++Dir],5*1000),
     rpc:call(Node,init,stop,[],5*1000).
 
-create_node(Ip,SshPort,UId,Pwd,HostId,NodeName,ErlCallArgs)->
+create_ssh(Ip,SshPort,UId,Pwd,HostId,NodeName,ErlCallArgs)->
     Node=list_to_atom(NodeName++"@"++HostId),
     ErlCmd="erl_call -s "++ErlCallArgs, 
     SshCmd="nohup "++ErlCmd++" &",
@@ -194,7 +197,7 @@ check_started(N,Vm,SleepTime,_Result)->
 %% Returns: non
 %% --------------------------------------------------------------------
    
-create_slave(HostNode,HostId,NodeName,ErlArgs)->
+create_wo_dir(HostNode,HostId,NodeName,ErlArgs)->
     Result= case rpc:call(HostNode,slave,start,[HostId,NodeName,ErlArgs],5*1000) of
 		{ok,PodNode}->	
 		    case net_adm:ping(PodNode) of
@@ -217,7 +220,7 @@ create_slave(HostNode,HostId,NodeName,ErlArgs)->
 %% AppPa=AppDir/ebin
 %% Returns: non
 %% --------------------------------------------------------------------
-create_slave(HostNode,HostId,NodeName,ErlArgs,PodDir)->
+create_w_dir(HostNode,HostId,NodeName,ErlArgs,PodDir)->
     rpc:call(HostNode,os,cmd,["rm -rf "++PodDir],5*1000),
     Result=case rpc:call(HostNode,file,make_dir,[PodDir],5*1000) of
 	       ok->
@@ -240,16 +243,39 @@ create_slave(HostNode,HostId,NodeName,ErlArgs,PodDir)->
 	   end,
     Result.
 
-%% --------------------------------------------------------------------
-%% Function:start/0 
-%% Description: Creates a slave node via HostNode 
-%% NodeName=pod_microseconds_clusterId_HostId
-%% PodDir=clusterId/pod_microseconds
-%% AppDir=PodDir/AppId
-%% AppPa=AppDir/ebin
-%% Returns: non
-%% --------------------------------------------------------------------
-delete_slave(HostNode,PodNode,PodDir)->
+
+    
+create(WantedHostId,HostNode,ClusterId,Cookie)->
+    create(WantedHostId,worker_nodes,HostNode,ClusterId,Cookie).
+create(WantedHostId,Type,HostNode,ClusterId,Cookie)->
+%    ?PrintLog(debug,"Start Create pod",[WantedHostId,Type,?FUNCTION_NAME,?MODULE,?LINE]),
+ %   Result=case [HostNode||{HostNode,HostId}<-db_cluster:read(host_nodes),
+%			   HostId==WantedHostId] of
+%	       []->
+%		   ?PrintLog(ticket,"WantedHost eexists",[WantedHostId,?FUNCTION_NAME,?MODULE,?LINE]),
+%		   erlang:exit({"WantedHost eexists",[WantedHostId,?FUNCTION_NAME,?MODULE,?LINE]}),
+%		   {error,["WantedHost eexists",WantedHostId,?FUNCTION_NAME,?MODULE,?LINE]};
+%	       [HostNode]->
+		%   Cookie=db_cluster:read(cookie),
+		%   ClusterId=db_cluster:read(cluster_id),
+    SystemTime=integer_to_list(erlang:system_time(microsecond)),
+    NodeName="pod_"++SystemTime++"_"++ClusterId++"_"++WantedHostId,
+    PodDirName="pod_"++SystemTime++"_"++ClusterId,
+    PodDir=filename:join(ClusterId,PodDirName),
+    Reference=PodDirName,
+    Args="-setcookie "++Cookie,
+    rpc:call(HostNode,os,cmd,["rm -rf "++PodDir],5*1000),
+    ok=rpc:call(HostNode,file,make_dir,[PodDir],5*1000),
+    {ok,PodNode}=rpc:call(HostNode,slave,start,[WantedHostId,NodeName,Args],5*1000),
+    pong=net_adm:ping(PodNode),
+    {atomic,ok}=db_pod:create(Reference,PodNode,PodDir,[],HostNode,{date(),time()}),
+						%		   ?PrintLog(debug,"PodNode info",[{Reference,PodNode,PodDir,HostNode,WantedHostId},?FUNCTION_NAME,?MODULE,?LINE]),
+    Result={ok,Reference},
+	 %  end,
+ %   ?PrintLog(debug,"Create pod Result",[Result,WantedHostId,?FUNCTION_NAME,?MODULE,?LINE]),
+    Result.
+
+delete_w_dir(HostNode,PodNode,PodDir)->
     Result=case rpc:call(HostNode,os,cmd,["rm -rf "++PodDir],2*1000) of
 	       []->
 		   rpc:call(HostNode,slave,stop,[PodNode],2*1000);    
@@ -258,16 +284,8 @@ delete_slave(HostNode,PodNode,PodDir)->
 		   {error,[ticket,"Error",[Error,HostNode,PodNode,PodDir,?FUNCTION_NAME,?MODULE,?LINE]]}
 	   end,
     Result.
-%% --------------------------------------------------------------------
-%% Function:start/0 
-%% Description: Creates a slave node via HostNode 
-%% NodeName=pod_microseconds_clusterId_HostId
-%% PodDir=clusterId/pod_microseconds
-%% AppDir=PodDir/AppId
-%% AppPa=AppDir/ebin
-%% Returns: non
-%% --------------------------------------------------------------------
-delete_slave(HostNode,PodNode)->
+
+delete_wo_dir(HostNode,PodNode)->
     Result=case rpc:call(HostNode,slave,stop,[PodNode],2*1000) of
 	       {badrpc,Reason}->
 		   ?PrintLog(ticket,"Error",[badrpc,Reason,HostNode,PodNode,?FUNCTION_NAME,?MODULE,?LINE]),
@@ -276,3 +294,26 @@ delete_slave(HostNode,PodNode)->
 		   ok 
 	   end,
     Result.
+
+delete(DeleteReference,HostNode,PodNode,PodDir)->
+    delete(DeleteReference,worker_nodes,HostNode,PodNode,PodDir).
+delete(DeleteReference,Type,HostNode,PodNode,PodDir)->
+    rpc:call(HostNode,os,cmd,["rm -rf "++PodDir],2*1000),
+    rpc:call(HostNode,slave,stop,[PodNode],2*1000),
+    {atomic,ok}=db_pod:delete(DeleteReference),
+    Result=ok,
+    %Result=case [{Reference,PodNode,PodDir,HostNode,WantedHostId}||{Reference,PodNode,PodDir,HostNode,WantedHostId}<-db_cluster:read(Type),
+%			 Reference==DeleteReference]of
+%	       []->
+%		   ?PrintLog(ticket,"PodNode eexists",[DeleteReference,Type,?FUNCTION_NAME,?MODULE,?LINE]),
+%		   {error,["WantedHost eexists",DeleteReference,Type,?FUNCTION_NAME,?MODULE,?LINE]};
+%	       [{Reference,PodNode,PodDir,HostNode,WantedHostId}]->
+		   
+%		   rpc:call(HostNode,os,cmd,["rm -rf "++PodDir],2*1000),
+%		   rpc:call(HostNode,slave,stop,[PodNode],2*1000),
+%		   {atomic,ok}=db_pod:delete(DeleteReference),
+%		   ok
+%	   end,
+    Result.
+		   
+
