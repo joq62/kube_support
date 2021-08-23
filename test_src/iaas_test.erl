@@ -123,7 +123,8 @@ host_nodes_0()->
 %% Returns: non
 %% --------------------------------------------------------------------
 cluster_0()->
-   
+    
+
     % Node1
     UniqueId1=integer_to_list(erlang:system_time(microsecond)), 
     ClusterId="c1",
@@ -131,9 +132,8 @@ cluster_0()->
     Cookie="c1_cookie",
     Alias0="c0_lgh",
     HostId0="c0",
-    Dir1=NodeName1,
-    {ok,Pod1}=new_node(Alias0,HostId0,NodeName1,Dir1,Cookie),
-
+    Dir1=UniqueId1++"."++ClusterId,
+    {ok,Pod1}=pod:new_node(Alias0,NodeName1,Dir1,Cookie),
     L1=container:load("mymath",Pod1,Dir1),
     io:format("L1 ~p~n",[{L1,?MODULE,?LINE}]),
     S1=container:start(Pod1,"mymath"),
@@ -142,15 +142,18 @@ cluster_0()->
     [N1]=sd:get(mymath),
     42=rpc:call(N1,mymath,add,[20,22],5*1000),
 
+ %   L11=container:load_start("support",Pod1),
+ %   io:format("Ls11 ~p~n",[{L11,?MODULE,?LINE}]),
+    L12=container:load_start("etcd",Pod1),
+    io:format("L12 ~p~n",[{L12,?MODULE,?LINE}]),
+    
+ 
     %Node2
     UniqueId2=integer_to_list(erlang:system_time(microsecond)), 
     ClusterId="c1",
     NodeName2=UniqueId2++"_"++ClusterId,
-    R2=pod:create_node(Alias0,NodeName2,Cookie),
-    io:format("create_node 2 ~p~n",[{R2,?MODULE,?LINE}]),
-    {ok,Pod2,_,_,_}=R2,
-    Dir2=NodeName2,
-    ok=rpc:call(Pod2,file,make_dir,[Dir2],5*1000),
+    Dir2=UniqueId2++"."++ClusterId,
+    {ok,Pod2}=pod:new_node(Alias0,NodeName2,Dir2,Cookie),
     io:format("list dir node2 ~p~n",[{rpc:call(Pod2,file,list_dir,["."],5*1000),?MODULE,?LINE}]),
    
     %Node3
@@ -159,33 +162,26 @@ cluster_0()->
     NodeName3=UniqueId3++"_"++ClusterId,
     Alias2="c2_lgh",
     HostId2="c2",
-    Dir3=NodeName3,
-    {ok,Pod3}=new_node(Alias2,HostId2,NodeName3,Dir3,Cookie),
+    Dir3=UniqueId3++"."++ClusterId,
+    {ok,Pod3}=pod:new_node(Alias2,NodeName3,Dir3,Cookie),
     io:format("list dir node3 ~p~n",[{rpc:call(Pod3,file,list_dir,["."],5*1000),?MODULE,?LINE}]),
     LS2=container:load_start("mymath",Pod3),
     [N3,N2]=sd:get(mymath),
     222=rpc:call(N2,mymath,add,[200,22],5*1000),
     24=rpc:call(N3,mymath,add,[2,22],5*1000),
-
+   
 
     NodeList=[{NodeName1,"c0",Dir1},{NodeName2,"c0",Dir2},{NodeName3,"c2",Dir3}],
 
     io:format("nods() ~p~n",[{nodes(),?MODULE,?LINE}]),
-    io:format("sd:all() ~p~n",[{sd:all(),?MODULE,?LINE}]),
+    io:format("sd:all ~p~n",[{sd:all(),?MODULE,?LINE}]),
+    io:format("db_pod:read_all() ~p~n",[{db_pod:read_all(),?MODULE,?LINE}]),
     
     [rpc:call(list_to_atom(NodeName++"@"++HostId),os,cmd,["rm -rf "++Dir])||{NodeName,HostId,Dir}<-NodeList],
     [pod:delete_node(list_to_atom(NodeName++"@"++HostId))||{NodeName,HostId,Dir}<-NodeList],
     
     ok.
 
-new_node(Alias,HostId,NodeName,PodDir,Cookie)->
-    R=pod:create_node(Alias,NodeName,Cookie),
-    io:format("create_node ~p~n",[{R,?MODULE,?LINE}]),
-    {ok,Pod,_,_,_}=R,
-    ok=rpc:call(Pod,file,make_dir,[PodDir],5*1000),
-    io:format("list dir node ~p~n",[{rpc:call(Pod,file,list_dir,["."],5*1000),?MODULE,?LINE}]),
-    {atomic,ok}=db_pod:create(Pod,PodDir,[],HostId,{date(),time()}),
-    {ok,Pod}.
 %% --------------------------------------------------------------------
 %% Function:start/0 
 %% Description: Initiate the eunit tests, set upp needed processes etc

@@ -21,7 +21,8 @@
 
 %% --------------------------------------------------------------------
 
--export([create_node/3,
+-export([new_node/4,
+	 create_node/3,
 	 create_node/7,  
 	 delete_node/1
 	]).
@@ -29,6 +30,38 @@
 %% ====================================================================
 %% External functions
 %% ====================================================================  
+new_node(Alias,NodeName,PodDir,Cookie)->
+    Result=case db_host_info:read(Alias) of
+	       []->
+		     {error,[eexist,Alias,?FUNCTION_NAME,?MODULE,?LINE]};
+	       [{Alias,HostId,_Ip,_SshPort,_UId,_Pwd}]->
+		   case create_node(Alias,NodeName,Cookie) of
+		       {error,Reason}->
+			   {error,[Reason,?FUNCTION_NAME,?MODULE,?LINE]};
+		       {ok,Pod,HostId,Ip,SshPort}->
+			   case rpc:call(Pod,file,make_dir,[PodDir],5*1000) of
+			       {error,Reason}->
+				   {error,[Reason,?FUNCTION_NAME,?MODULE,?LINE]};
+			       ok->
+				   case db_pod:create(Pod,PodDir,[],HostId,{date(),time()}) of
+				       {atomic,ok}->
+					   case container:load_start("support",Pod) of
+					       {ok,_}->
+						   {ok,Pod};
+					        {Error,Reason}->
+						   {Error,[Reason,?FUNCTION_NAME,?MODULE,?LINE]}
+					   end;
+				       Error ->
+					   {error,[Error,?FUNCTION_NAME,?MODULE,?LINE]}
+				   end
+			   end
+		   end
+	   end,
+    Result.
+				       
+   
+
+
 %% --------------------------------------------------------------------
 %% Function:start/0 
 %% Description: Creates a slave node via HostNode 

@@ -58,7 +58,7 @@ load_start(WantedPodSpec,PodNode)->
 		%	   ?PrintLog(debug,"PodstartResult",[PodstartResult,?FUNCTION_NAME,?MODULE,?LINE]),
 			   case PodstartResult of
 			       {ok,Reason2}->
-				   {atomic,ok}=db_pod:add_spec(PodNode,WantedPodSpec),
+				   %{atomic,ok}=db_pod:add_spec(PodNode,WantedPodSpec),
 				   {ok,Reason2};
 			       {Error,Reason2}->
 				   {Error,Reason2,container,start,?FUNCTION_NAME,?MODULE,?LINE}
@@ -143,6 +143,7 @@ start(PodNode,WantedPodSpec)->
     ?PrintLog(debug,"App,PodNode,WantedPodSpec",[App,PodNode,WantedPodSpec,?FUNCTION_NAME,?MODULE,?LINE]),
     Result=case rpc:call(PodNode,application,start,[App],2*60*1000) of
 	       ok->
+		   {atomic,ok}=db_pod:add_spec(PodNode,WantedPodSpec),
 		   {ok,[App]};
 	       {error,{already_started,App}}->
 		   {ok,[already_started,App]};
