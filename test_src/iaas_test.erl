@@ -33,9 +33,21 @@ start()->
     ok=setup(),
     io:format("~p~n",[{"Stop setup",?MODULE,?FUNCTION_NAME,?LINE}]),
 
-    io:format("~p~n",[{"Start pod_0()",?MODULE,?FUNCTION_NAME,?LINE}]),
-    ok=pod_0(),
-    io:format("~p~n",[{"Stop pod_0()",?MODULE,?FUNCTION_NAME,?LINE}]),
+ %   io:format("~p~n",[{"Start pod_0()",?MODULE,?FUNCTION_NAME,?LINE}]),
+ %   ok=pod_0(),
+ %   io:format("~p~n",[{"Stop pod_0()",?MODULE,?FUNCTION_NAME,?LINE}]),
+
+    io:format("~p~n",[{"Start host_nodes_0()",?MODULE,?FUNCTION_NAME,?LINE}]),
+  %  ok=host_nodes_0(),
+    io:format("~p~n",[{"Stop host_nodes_0()",?MODULE,?FUNCTION_NAME,?LINE}]),
+
+    io:format("~p~n",[{"Start cluster_0()",?MODULE,?FUNCTION_NAME,?LINE}]),
+    ok=cluster_0(),
+    io:format("~p~n",[{"Stop cluster_0()",?MODULE,?FUNCTION_NAME,?LINE}]),
+
+%    io:format("~p~n",[{"Start load_app_0()",?MODULE,?FUNCTION_NAME,?LINE}]),
+%    ok=load_app_0(),
+%    io:format("~p~n",[{"Stop load_app_0()",?MODULE,?FUNCTION_NAME,?LINE}]),
 
  
 %   io:format("~p~n",[{"Start pass_0()",?MODULE,?FUNCTION_NAME,?LINE}]),
@@ -73,6 +85,107 @@ start()->
     ok.
 
 
+
+
+%% --------------------------------------------------------------------
+%% Function:start/0 
+%% Description: Initiate the eunit tests, set upp needed processes etc
+%% Returns: non
+%% --------------------------------------------------------------------
+host_nodes_0()->
+    {ok,Running,Missing}=host:status_all_hosts(),
+    io:format("Running ~p~n",[{Running,?MODULE,?LINE}]),
+ %   Cookie="host_nodes_cookie",
+ %   WantedHostAlias=["c2_lgh","c0_lgh","asus_lgh"],
+    
+    [pod:delete_node(Node)||Node<-['s1@c0','s2@c0']],
+
+    NodeName1="s1",
+    Cookie1="c1",
+    Alias="c0_lgh",
+  
+    R1=pod:create_node(Alias,NodeName1,Cookie1),
+    io:format("create_node 1 ~p~n",[{R1,?MODULE,?LINE}]),
+ 
+   %% Salve 2
+    NodeName2="s2",
+    Cookie2="c2",
+    R2=pod:create_node(Alias,NodeName2,Cookie2),
+    io:format("create_node 2 ~p~n",[{R2,?MODULE,?LINE}]),
+
+    [pod:delete_node(Node)||Node<-['s1@c0','s2@c0']],
+    ok.
+
+
+%% --------------------------------------------------------------------
+%% Function:start/0 
+%% Description: Initiate the eunit tests, set upp needed processes etc
+%% Returns: non
+%% --------------------------------------------------------------------
+cluster_0()->
+   
+    % Node1
+    UniqueId1=integer_to_list(erlang:system_time(microsecond)), 
+    ClusterId="c1",
+    NodeName1=UniqueId1++"_"++ClusterId,
+    Cookie="c1_cookie",
+    Alias0="c0_lgh",
+    HostId0="c0",
+    Dir1=NodeName1,
+    {ok,Pod1}=new_node(Alias0,HostId0,NodeName1,Dir1,Cookie),
+
+    L1=container:load("mymath",Pod1,Dir1),
+    io:format("L1 ~p~n",[{L1,?MODULE,?LINE}]),
+    S1=container:start(Pod1,"mymath"),
+    io:format("S1 ~p~n",[{S1,?MODULE,?LINE}]),
+    timer:sleep(200),
+    [N1]=sd:get(mymath),
+    42=rpc:call(N1,mymath,add,[20,22],5*1000),
+
+    %Node2
+    UniqueId2=integer_to_list(erlang:system_time(microsecond)), 
+    ClusterId="c1",
+    NodeName2=UniqueId2++"_"++ClusterId,
+    R2=pod:create_node(Alias0,NodeName2,Cookie),
+    io:format("create_node 2 ~p~n",[{R2,?MODULE,?LINE}]),
+    {ok,Pod2,_,_,_}=R2,
+    Dir2=NodeName2,
+    ok=rpc:call(Pod2,file,make_dir,[Dir2],5*1000),
+    io:format("list dir node2 ~p~n",[{rpc:call(Pod2,file,list_dir,["."],5*1000),?MODULE,?LINE}]),
+   
+    %Node3
+    UniqueId3=integer_to_list(erlang:system_time(microsecond)), 
+    ClusterId="c1",
+    NodeName3=UniqueId3++"_"++ClusterId,
+    Alias2="c2_lgh",
+    HostId2="c2",
+    Dir3=NodeName3,
+    {ok,Pod3}=new_node(Alias2,HostId2,NodeName3,Dir3,Cookie),
+    io:format("list dir node3 ~p~n",[{rpc:call(Pod3,file,list_dir,["."],5*1000),?MODULE,?LINE}]),
+    LS2=container:load_start("mymath",Pod3),
+    [N3,N2]=sd:get(mymath),
+    222=rpc:call(N2,mymath,add,[200,22],5*1000),
+    24=rpc:call(N3,mymath,add,[2,22],5*1000),
+
+
+    NodeList=[{NodeName1,"c0",Dir1},{NodeName2,"c0",Dir2},{NodeName3,"c2",Dir3}],
+
+    io:format("nods() ~p~n",[{nodes(),?MODULE,?LINE}]),
+    io:format("sd:all() ~p~n",[{sd:all(),?MODULE,?LINE}]),
+    
+    [rpc:call(list_to_atom(NodeName++"@"++HostId),os,cmd,["rm -rf "++Dir])||{NodeName,HostId,Dir}<-NodeList],
+    [pod:delete_node(list_to_atom(NodeName++"@"++HostId))||{NodeName,HostId,Dir}<-NodeList],
+    
+    ok.
+
+new_node(Alias,HostId,NodeName,PodDir,Cookie)->
+    R=pod:create_node(Alias,NodeName,Cookie),
+    io:format("create_node ~p~n",[{R,?MODULE,?LINE}]),
+    {ok,Pod,_,_,_}=R,
+    ok=rpc:call(Pod,file,make_dir,[PodDir],5*1000),
+    io:format("list dir node ~p~n",[{rpc:call(Pod,file,list_dir,["."],5*1000),?MODULE,?LINE}]),
+    {atomic,ok}=db_pod:create(Pod,PodDir,[],HostId,{date(),time()}),
+    {ok,Pod}.
 %% --------------------------------------------------------------------
 %% Function:start/0 
 %% Description: Initiate the eunit tests, set upp needed processes etc
