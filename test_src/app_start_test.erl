@@ -69,7 +69,7 @@ setup()->
     ok=application:start(etcd),
 
    
-    io:format("cluster:delete(lgh) ~p~n",[{cluster:delete("lgh"),?MODULE,?LINE}]),
+   % io:format("cluster:delete(lgh) ~p~n",[{cluster:delete("lgh"),?MODULE,?LINE}]),
    {ok,_}=iaas:start(),
     ok.
 

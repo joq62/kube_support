@@ -21,45 +21,114 @@
 
 %% --------------------------------------------------------------------
 
--export([new_node/4,
-	 create_node/3,
+-export([
+	 create_pod/2,
+	 delete_pod/2,
 	 create_node/7,  
-	 delete_node/1
+	 delete_node/1,
+	 delete_node/2
 	]).
 
 %% ====================================================================
 %% External functions
 %% ====================================================================  
-new_node(Alias,NodeName,PodDir,Cookie)->
-    Result=case db_host_info:read(Alias) of
-	       []->
-		     {error,[eexist,Alias,?FUNCTION_NAME,?MODULE,?LINE]};
-	       [{Alias,HostId,_Ip,_SshPort,_UId,_Pwd}]->
-		   case create_node(Alias,NodeName,Cookie) of
+create_pod(PodName,ClusterName)->
+    Result=case db_pod_spec:member(PodName) of
+	       false->
+		   {error,[eexist,PodName,?FUNCTION_NAME,?MODULE,?LINE]};
+	       true->
+		   case create_vm(PodName,ClusterName) of
 		       {error,Reason}->
-			   {error,[Reason,?FUNCTION_NAME,?MODULE,?LINE]};
-		       {ok,Pod,HostId,Ip,SshPort}->
-			   case rpc:call(Pod,file,make_dir,[PodDir],5*1000) of
-			       {error,Reason}->
-				   {error,[Reason,?FUNCTION_NAME,?MODULE,?LINE]};
-			       ok->
-				   case db_pod:create(Pod,PodDir,[],HostId,{date(),time()}) of
-				       {atomic,ok}->
-					   case container:load_start("support",Pod) of
-					       {ok,_}->
-						   {ok,Pod};
-					        {Error,Reason}->
-						   {Error,[Reason,?FUNCTION_NAME,?MODULE,?LINE]}
-					   end;
-				       Error ->
-					   {error,[Error,?FUNCTION_NAME,?MODULE,?LINE]}
-				   end
+			   {error,Reason};
+		       {ok,Pod,Dir}->
+			   StartResult=start_containers(PodName,Pod,Dir),
+			   FilteredStartRes=[{error,Reason}||{error,Reason}<-StartResult],
+			   case FilteredStartRes of
+			       []->
+				   {ok,PodName,Pod};
+			       FilteredStartRes->
+				   {error,FilteredStartRes}
 			   end
 		   end
 	   end,
     Result.
-				       
-   
+
+
+
+start_containers(PodName,Pod,Dir)->
+    Containers=db_pod_spec:containers(PodName),
+    start_containers(Containers,PodName,Pod,Dir,[]).
+start_containers([],_PodName,_Pod,_Dir,StartResult)->
+    StartResult;
+start_containers([{AppId,AppVsn,GitPath,AppEnv}|T],PodName,Pod,Dir,Acc)->
+    NewAcc=case container:load(AppId,AppVsn,GitPath,AppEnv,Pod,Dir) of
+	       {error,Reason}->
+		   {Pod,Dir,PodStatus,ContainerStatus}=db_pod_spec:deployment(PodName,Pod),
+		   NewContainerStatus=[{AppId,AppVsn,failure}|lists:keydelete(AppId,1,ContainerStatus)],		   
+		   {atomic,ok}=db_pod_spec:update_deployment(PodName,Pod,Dir,PodStatus,NewContainerStatus),		   
+		   [{error,[Reason,AppId,AppVsn,GitPath,AppEnv,Pod,Dir,?FUNCTION_NAME,?MODULE,?LINE]}|Acc];
+	       ok->
+		   case container:start(AppId,Pod) of
+		       {error,Reason}->
+			   {Pod,Dir,PodStatus,ContainerStatus}=db_pod_spec:deployment(PodName,Pod),
+			   NewContainerStatus=[{AppId,AppVsn,failure}|lists:keydelete(AppId,1,ContainerStatus)],		   
+			   {atomic,ok}=db_pod_spec:update_deployment(PodName,Pod,Dir,PodStatus,NewContainerStatus),
+			   [{error,[Reason,AppId,AppVsn,GitPath,AppEnv,Pod,Dir,?FUNCTION_NAME,?MODULE,?LINE]}|Acc];
+		       ok->
+			   {Pod,Dir,PodStatus,ContainerStatus}=db_pod_spec:deployment(PodName,Pod),
+			   NewContainerStatus=[{AppId,AppVsn,started}|lists:keydelete(AppId,1,ContainerStatus)],		   
+			   {atomic,ok}=db_pod_spec:update_deployment(PodName,Pod,Dir,PodStatus,NewContainerStatus),
+			   [{ok,AppId}|Acc]
+		   end
+	   end,
+    start_containers(T,PodName,Pod,Dir,NewAcc).  
+    
+
+create_vm(PodName,ClusterName)->
+    Result=case get_host(PodName,ClusterName) of
+	       {error,Reason}->
+		   {error,Reason};
+	       {ok,{Alias,HostId}} ->
+		   UniqueId=integer_to_list(erlang:system_time(microsecond)), 
+		   NodeName=UniqueId++"_"++ClusterName,
+		   Dir=UniqueId++"."++ClusterName,
+		   Cookie=db_cluster_spec:cookie(ClusterName),
+		   [{Alias,HostId,Ip,SshPort,UId,Pwd}]=db_host_info:read(Alias),
+		   ErlCallArgs="-c "++Cookie++" "++"-sname "++NodeName,
+		   Node=list_to_atom(NodeName++"@"++HostId),    
+		   true=erlang:set_cookie(Node,list_to_atom(Cookie)),
+		   true=erlang:set_cookie(node(),list_to_atom(Cookie)),
+		   case create_node(Ip,SshPort,UId,Pwd,HostId,NodeName,ErlCallArgs) of
+		       {error,Reason}->
+			   {error,Reason};
+		       {ok,Pod}->
+			   case rpc:call(Pod,file,make_dir,[Dir],5*1000) of
+			       {error,Reason} ->
+				   {error,[Reason,Ip,SshPort,UId,Pwd,HostId,NodeName,ErlCallArgs,?FUNCTION_NAME,?MODULE,?LINE]};
+			       ok->
+				   {atomic,ok}=db_pod_spec:add_deployment(PodName,Pod,Dir,running,[]),
+				   {ok,Pod,Dir}
+			   end
+		   end
+	   end, 
+    Result.
+
+get_host(PodName,ClusterName)->
+    Hosts=db_cluster_spec:hosts(ClusterName),
+    Result=case db_pod_spec:wanted_hosts(PodName) of
+	       []->
+		   L=lists:flatlength(Hosts),
+		   {Alias,HostId}=lists:nth(rand:uniform(L),Hosts),
+		   {ok,{Alias,HostId}};
+	       [{WantedAlias,WantedHostId}]->
+		   case lists:member({WantedAlias,WantedHostId},Hosts) of
+		       false->
+			   {error,["eexists",{WantedAlias,WantedHostId},Hosts,?FUNCTION_NAME,?MODULE,?LINE]};
+		       true->
+			   {ok,{WantedAlias,WantedHostId}}
+		   end
+	   end,
+    Result.    
 
 
 %% --------------------------------------------------------------------
@@ -71,17 +140,35 @@ new_node(Alias,NodeName,PodDir,Cookie)->
 %% AppPa=AppDir/ebin
 %% Returns: non
 %% --------------------------------------------------------------------
-delete_node(Node)->
-    rpc:call(Node,init,stop,[],5*1000).
-
-create_node(Alias,NodeName,Cookie)->
-    [{Alias,HostId,Ip,SshPort,UId,Pwd}]=db_host_info:read(Alias),
-    ErlCallArgs="-c "++Cookie++" "++"-sname "++NodeName,
-    Node=list_to_atom(NodeName++"@"++HostId),    
-    true=erlang:set_cookie(Node,list_to_atom(Cookie)),
-    true=erlang:set_cookie(node(),list_to_atom(Cookie)),
-    Result=create_node(Ip,SshPort,UId,Pwd,HostId,NodeName,ErlCallArgs),
+delete_pod(PodName,Pod)->
+    Result=case db_pod_spec:deployment(PodName,Pod) of
+	       []->
+		   {error,["eexists",PodName,?FUNCTION_NAME,?MODULE,?LINE]};
+	       {Pod,Dir,_PodStatus,_ContainerStatus}->
+		   [container:unload_stop(AppId,Pod)||{AppId,_Vsn,_GitPath,_Env}<-db_pod_spec:containers(PodName)],
+		   rpc:call(Pod,os,cmd,["rm -rf "++Dir],5*1000),
+		   rpc:call(Pod,init,stop,[],5*1000),		   
+		   {atomic,ok}=db_pod_spec:delete_deployment(PodName,Pod),
+		   ok
+	   end,
     Result.
+
+delete_node(Node)->
+    rpc:call(Node,init,stop,[],5*1000),
+    ok.
+delete_node(Node,Dir)->
+    rpc:call(Node,os,cmd,["rm -rf "++Dir],5*1000),
+    rpc:call(Node,init,stop,[],5*1000),
+    ok.
+
+%create_node(Alias,NodeName,Cookie)->
+%    [{Alias,HostId,Ip,SshPort,UId,Pwd}]=db_host_info:read(Alias),
+%    ErlCallArgs="-c "++Cookie++" "++"-sname "++NodeName,
+%    Node=list_to_atom(NodeName++"@"++HostId),    
+%    true=erlang:set_cookie(Node,list_to_atom(Cookie)),
+%    true=erlang:set_cookie(node(),list_to_atom(Cookie)),
+%    Result=create_node(Ip,SshPort,UId,Pwd,HostId,NodeName,ErlCallArgs),
+%    Result.
 
 create_node(Ip,SshPort,UId,Pwd,HostId,NodeName,ErlCallArgs)->    
     ErlCmd="erl_call -s "++ErlCallArgs, 
@@ -99,7 +186,7 @@ create_node(Ip,SshPort,UId,Pwd,HostId,NodeName,ErlCallArgs)->
 		   case node_started(Node) of
 		       true->
 			  % ?PrintLog(debug,"  {atomic,ok}",[ClusterAddResult,Node,HostId,?FUNCTION_NAME,?MODULE,?LINE]),
-			   {ok,Node,HostId,Ip,SshPort};
+			   {ok,Node};
 		       false->
 			   ?PrintLog(ticket,"Failed to connect to node",[Ip,SshPort,UId,Pwd,HostId,NodeName,ErlCallArgs,?FUNCTION_NAME,?MODULE,?LINE]),
 			   {error,["Failed to connect to node",Ip,SshPort,UId,Pwd,HostId,NodeName,ErlCallArgs,?MODULE,?FUNCTION_NAME,?LINE]}

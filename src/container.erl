@@ -22,17 +22,29 @@
 %% --------------------------------------------------------------------
 
 -export([
-	 load/3,
-	 start/2,
-	 load_start/2,
-	 load_start/3
-	 
+	 unload_stop/2,
+	 load/6,
+	 start/2
 	]).
 
 
 %% ====================================================================
 %% External functions
 %% ====================================================================  
+%% --------------------------------------------------------------------
+%% Function:start/0 
+%% Description: Creates a slave node via HostNode 
+%% NodeName=pod_microseconds_clusterId_HostId
+%% PodDir=clusterId/pod_microseconds
+%% AppDir=PodDir/AppId
+%% AppPa=AppDir/ebin
+%% Returns: non
+%% --------------------------------------------------------------------
+unload_stop(AppId,Pod)->
+    App=list_to_atom(AppId),
+    R1=rpc:call(Pod,application,unload,[App],2*1000),
+    R2=rpc:call(Pod,application,stop,[App],2*1000),
+    {R1,R2}.
 
 
 %% --------------------------------------------------------------------
@@ -44,110 +56,40 @@
 %% AppPa=AppDir/ebin
 %% Returns: non
 %% --------------------------------------------------------------------
-load_start(WantedPodSpec,PodNode)->
-    ?PrintLog(log,"load_start",[WantedPodSpec,PodNode,?FUNCTION_NAME,?MODULE,?LINE]),
-    Result=case db_pod:read(PodNode) of
-	       []->
-		%   ?PrintLog(ticket," Reference eexists",[Reference,Type,?FUNCTION_NAME,?MODULE,?LINE]),
-		   {error,["PodId eexists",PodNode,?FUNCTION_NAME,?MODULE,?LINE]};
-	       [{PodNode,PodDir,PodSpecs,HostNode,Created}]->
-		   PodLoadResult=rpc:call(node(),container,load,[WantedPodSpec,PodNode,PodDir],25*1000),
-		   case PodLoadResult  of
-		       {ok,_}->
-			   PodstartResult=rpc:call(node(),container,start,[PodNode,WantedPodSpec],25*1000),
-		%	   ?PrintLog(debug,"PodstartResult",[PodstartResult,?FUNCTION_NAME,?MODULE,?LINE]),
-			   case PodstartResult of
-			       {ok,Reason2}->
-				   %{atomic,ok}=db_pod:add_spec(PodNode,WantedPodSpec),
-				   {ok,Reason2};
-			       {Error,Reason2}->
-				   {Error,Reason2,container,start,?FUNCTION_NAME,?MODULE,?LINE}
-			   end;
-		       {Error,Reason}->
-			   {Error,Reason,container,load,?FUNCTION_NAME,?MODULE,?LINE}
-		   end;
-	       UnMatched ->
-		   ?PrintLog(ticket,"UnMatched",[UnMatched,WantedPodSpec,PodNode,?FUNCTION_NAME,?MODULE,?LINE]),
-		   {error,[ticket,"unmatched signal",[UnMatched,?FUNCTION_NAME,?MODULE,?LINE]]}
-	   end,
-    ?PrintLog(log,"load_start, Result=",[Result,WantedPodSpec,PodNode,?FUNCTION_NAME,?MODULE,?LINE]),
+load(AppId,_AppVsn,GitPath,AppEnv,Pod,Dir)->
+    Result = case rpc:call(Pod,application,which_applications,[],5*1000) of
+		 {badrpc,Reason}->
+		     {error,[badrpc,Reason,?FUNCTION_NAME,?MODULE,?LINE]};
+		 LoadedApps->
+		     case lists:keymember(list_to_atom(AppId),1,LoadedApps) of
+			 true->
+			     ?PrintLog(log,'Already loaded',[AppId,Pod,?FUNCTION_NAME,?MODULE,?LINE]),
+			     {error,['Already loaded',AppId,Pod]};
+			 false ->
+			     AppDir=filename:join(Dir,AppId),
+			     AppEbin=filename:join(AppDir,"ebin"),
+			     App=list_to_atom(AppId),
+			     rpc:call(Pod,os,cmd,["rm -rf "++AppId],25*1000),
+			     _GitResult=rpc:call(Pod,os,cmd,["git clone "++GitPath],25*1000),
+				%	   ?PrintLog(log,"GitResult",[PodNode,GitPath,GitResult,?FUNCTION_NAME,?MODULE,?LINE]),
+			     _MVResult=rpc:call(Pod,os,cmd,["mv "++AppId++" "++AppDir],25*1000),
+				%	   ?PrintLog(log,"MVResult",[AppId,AppDir,MVResult,?FUNCTION_NAME,?MODULE,?LINE]),
+			     true=rpc:call(Pod,code,add_patha,[AppEbin],22*1000),
+			     ok=rpc:call(Pod,application,set_env,[[{App,AppEnv}]]),		       
+			     ok
+		     end
+	     end,
     Result.
 
-
-
-
-load_start(WantedPodSpec,Reference,Type)->
-    Result=case db_pod:read(Reference) of
-	       []->
-		%   ?PrintLog(ticket," Reference eexists",[Reference,Type,?FUNCTION_NAME,?MODULE,?LINE]),
-		   {error,["Reference eexists",Reference,Type,?FUNCTION_NAME,?MODULE,?LINE]};
-	       [{Reference,PodNode,PodDir,PodSpecs,HostNode,Created}]->
-		   PodLoadResult=rpc:call(node(),pod,load,[WantedPodSpec,HostNode,PodNode,PodDir],25*1000),
-		   case PodLoadResult  of
-		       {ok,_}->
-			   PodstartResult=rpc:call(node(),pod,start,[PodNode,WantedPodSpec],25*1000),
-		%	   ?PrintLog(debug,"PodstartResult",[PodstartResult,?FUNCTION_NAME,?MODULE,?LINE]),
-			   case PodstartResult of
-			       {ok,Reason2}->
-				   {atomic,ok}=db_pod:add_spec(Reference,WantedPodSpec),
-				   {ok,Reason2};
-			       {Error,Reason2}->
-				   {Error,Reason2,pod,start,?FUNCTION_NAME,?MODULE,?LINE}
-			   end;
-		       {Error,Reason}->
-			   {Error,Reason,pod,load,?FUNCTION_NAME,?MODULE,?LINE}
-		   end;
-	       UnMatched ->
-		   ?PrintLog(ticket,"UnMatched",[UnMatched,WantedPodSpec,Reference,?FUNCTION_NAME,?MODULE,?LINE]),
-		   {error,[ticket,"unmatched signal",[UnMatched,?FUNCTION_NAME,?MODULE,?LINE]]}
-	   end,
-    ?PrintLog(log,"load_start, Result=",[Result,WantedPodSpec,Reference,?FUNCTION_NAME,?MODULE,?LINE]),
-    Result.
-			  
-%% --------------------------------------------------------------------
-%% Function:start/0 
-%% Description: Creates a slave node via HostNode 
-%% NodeName=pod_microseconds_clusterId_HostId
-%% PodDir=clusterId/pod_microseconds
-%% AppDir=PodDir/AppId
-%% AppPa=AppDir/ebin
-%% Returns: non
-%% --------------------------------------------------------------------
-load(WantedPodSpec,PodNode,PodDir)->
-    AppId=db_pod_spec:app_id(WantedPodSpec),
-    LoadedApps=rpc:call(PodNode,application,loaded_applications,[],25*1000),
-   % ?PrintLog(debug,"LoadedApps ",[LoadedApps,PodNode,?FUNCTION_NAME,?MODULE,?LINE]),
-    Result=case lists:keymember(list_to_atom(AppId),1,LoadedApps) of
-	       true->
-		   ?PrintLog(log,'Already loaded',[WantedPodSpec,AppId,PodNode,?FUNCTION_NAME,?MODULE,?LINE]),
-		   {error,['Already loaded',AppId,PodNode]};
-	       false ->
-		   GitPath=db_pod_spec:git_path(WantedPodSpec),
-		   AppDir=filename:join(PodDir,AppId),
-		   AppEbin=filename:join(AppDir,"ebin"),
-		   App=list_to_atom(AppId),
-		   rpc:call(PodNode,os,cmd,["rm -rf "++AppId],25*1000),
-		   GitResult=rpc:call(PodNode,os,cmd,["git clone "++GitPath],25*1000),
-	%	   ?PrintLog(log,"GitResult",[PodNode,GitPath,GitResult,?FUNCTION_NAME,?MODULE,?LINE]),
-		   MVResult=rpc:call(PodNode,os,cmd,["mv "++AppId++" "++AppDir],25*1000),
-	%	   ?PrintLog(log,"MVResult",[AppId,AppDir,MVResult,?FUNCTION_NAME,?MODULE,?LINE]),
-		   true=rpc:call(PodNode,code,add_patha,[AppEbin],22*1000),
-		   AppEnv=db_pod_spec:app_env(WantedPodSpec),
-		   ok=rpc:call(PodNode,application,set_env,[[{App,AppEnv}]]),		       
-		   {ok,[]}
-	   end,
-    Result.
-
-start(PodNode,WantedPodSpec)->
-    App=list_to_atom(db_pod_spec:app_id(WantedPodSpec)),
-    ?PrintLog(debug,"App,PodNode,WantedPodSpec",[App,PodNode,WantedPodSpec,?FUNCTION_NAME,?MODULE,?LINE]),
-    Result=case rpc:call(PodNode,application,start,[App],2*60*1000) of
+start(AppId,Pod)->
+    App=list_to_atom(AppId),
+    ?PrintLog(debug,"App,Pod",[App,Pod,?FUNCTION_NAME,?MODULE,?LINE]),
+    Result=case rpc:call(Pod,application,start,[App],2*60*1000) of
 	       ok->
-		   {atomic,ok}=db_pod:add_spec(PodNode,WantedPodSpec),
-		   {ok,[App]};
-	       {error,{already_started,App}}->
-		   {ok,[already_started,App]};
+		   ok;
+	       {error,{already_started}}->
+		   ok;
 	       {Error,Reason}->
-		   {Error,[Reason,application,PodNode,start,App,?FUNCTION_NAME,?MODULE,?LINE]}
+		   {Error,[Reason,application,Pod,start,App,?FUNCTION_NAME,?MODULE,?LINE]}
 	   end,
     Result.

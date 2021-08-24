@@ -33,17 +33,17 @@ start()->
     ok=setup(),
     io:format("~p~n",[{"Stop setup",?MODULE,?FUNCTION_NAME,?LINE}]),
 
- %   io:format("~p~n",[{"Start pod_0()",?MODULE,?FUNCTION_NAME,?LINE}]),
- %   ok=pod_0(),
- %   io:format("~p~n",[{"Stop pod_0()",?MODULE,?FUNCTION_NAME,?LINE}]),
+    io:format("~p~n",[{"Start pod_0()",?MODULE,?FUNCTION_NAME,?LINE}]),
+    ok=pod_0(),
+    io:format("~p~n",[{"Stop pod_0()",?MODULE,?FUNCTION_NAME,?LINE}]),
 
-    io:format("~p~n",[{"Start host_nodes_0()",?MODULE,?FUNCTION_NAME,?LINE}]),
+  %  io:format("~p~n",[{"Start host_nodes_0()",?MODULE,?FUNCTION_NAME,?LINE}]),
   %  ok=host_nodes_0(),
-    io:format("~p~n",[{"Stop host_nodes_0()",?MODULE,?FUNCTION_NAME,?LINE}]),
+  %  io:format("~p~n",[{"Stop host_nodes_0()",?MODULE,?FUNCTION_NAME,?LINE}]),
 
-    io:format("~p~n",[{"Start cluster_0()",?MODULE,?FUNCTION_NAME,?LINE}]),
-    ok=cluster_0(),
-    io:format("~p~n",[{"Stop cluster_0()",?MODULE,?FUNCTION_NAME,?LINE}]),
+  %  io:format("~p~n",[{"Start cluster_0()",?MODULE,?FUNCTION_NAME,?LINE}]),
+  %  ok=cluster_0(),
+ %   io:format("~p~n",[{"Stop cluster_0()",?MODULE,?FUNCTION_NAME,?LINE}]),
 
 %    io:format("~p~n",[{"Start load_app_0()",?MODULE,?FUNCTION_NAME,?LINE}]),
 %    ok=load_app_0(),
@@ -54,27 +54,6 @@ start()->
 %    ok=pass_0(),
 %   io:format("~p~n",[{"Stop pass_0()",?MODULE,?FUNCTION_NAME,?LINE}]),
 
-%    io:format("~p~n",[{"Start pass_1()",?MODULE,?FUNCTION_NAME,?LINE}]),
-%    ok=pass_1(),
-%    io:format("~p~n",[{"Stop pass_1()",?MODULE,?FUNCTION_NAME,?LINE}]),
-
-%    io:format("~p~n",[{"Start pass_2()",?MODULE,?FUNCTION_NAME,?LINE}]),
-%    ok=pass_2(),
- %   io:format("~p~n",[{"Stop pass_2()",?MODULE,?FUNCTION_NAME,?LINE}]),
-
-%    io:format("~p~n",[{"Start pass_3()",?MODULE,?FUNCTION_NAME,?LINE}]),
-%    ok=pass_3(),
-%    io:format("~p~n",[{"Stop pass_3()",?MODULE,?FUNCTION_NAME,?LINE}]),
-
-  %  io:format("~p~n",[{"Start pass_4()",?MODULE,?FUNCTION_NAME,?LINE}]),
-  %  ok=pass_4(),
-  %  io:format("~p~n",[{"Stop pass_4()",?MODULE,?FUNCTION_NAME,?LINE}]),
-
-  %  io:format("~p~n",[{"Start pass_5()",?MODULE,?FUNCTION_NAME,?LINE}]),
-  %  ok=pass_5(),
-  %  io:format("~p~n",[{"Stop pass_5()",?MODULE,?FUNCTION_NAME,?LINE}]),
- 
-    
    
       %% End application tests
     io:format("~p~n",[{"Start cleanup",?MODULE,?FUNCTION_NAME,?LINE}]),
@@ -85,7 +64,26 @@ start()->
     ok.
 
 
-
+%% --------------------------------------------------------------------
+%% Function:start/0 
+%% Description: Initiate the eunit tests, set upp needed processes etc
+%% Returns: non
+%% --------------------------------------------------------------------
+pod_0()->
+    {ok,Running,Missing}=host:status_all_hosts(),
+    io:format("Running ~p~n",[{Running,?MODULE,?LINE}]),
+    PodName="mymath",
+    ClusterName="lgh",
+    {ok,PodName,Pod1}=pod:create_pod(PodName,ClusterName),
+    
+    [N|_]=sd:get(mymath),
+    42=rpc:call(N,mymath,add,[20,22],5*1000),
+    
+    ok=pod:delete_pod(PodName,Pod1),
+    timer:sleep(1000),
+    {badrpc,_Reason}=rpc:call(N,mymath,add,[20,22],5*1000),
+    
+    ok.
 
 %% --------------------------------------------------------------------
 %% Function:start/0 
@@ -182,57 +180,8 @@ cluster_0()->
     
     ok.
 
-%% --------------------------------------------------------------------
-%% Function:start/0 
-%% Description: Initiate the eunit tests, set upp needed processes etc
-%% Returns: non
-%% --------------------------------------------------------------------
-pod_0()->
-    {ok,Running,Missing}=host:status_all_hosts(),
-    io:format("Running ~p~n",[{Running,?MODULE,?LINE}]),
-
-    SshPort=22,
-    UId="joq62",
-    Pwd="festum01",
-    % ssh_start
-    Node1_IP="192.168.0.202",
-    Node1_HostId="c2",
-    Node1_NodeName="node1",
-    Node1_ErlCallArgs="-c lgh_cookie -sname "++Node1_NodeName,
-    pod:delete_node('node1@c2'),
-    timer:sleep(1000),
-    {ok,Node1, Node1_HostId,Node1_IP,SshPort}=pod:create_node(Node1_IP,SshPort,UId,Pwd,Node1_HostId,Node1_NodeName,Node1_ErlCallArgs),
-    pong=net_adm:ping(Node1),
-
-    pod:delete_slave(Node1,list_to_atom("node2"++"@"++Node1_HostId)),
-    %% Create slave with out dir
     
-    Node2_NodeName="node2",
-    HostId="c2",
-    ErlArgs="-setcookie lgh_cookie",
-    {ok,Node2}=pod:create_slave(Node1,HostId,Node2_NodeName,ErlArgs),
-    pong=net_adm:ping(Node2),
-
-    %% Create slave with dir
-    
-    Node3_NodeName="node3",
-    HostId="c2",
-    ErlArgs="-setcookie lgh_cookie",
-    PodDir3="node3_dir",
-    {ok,Node3}=pod:create_slave(Node1,HostId,Node3_NodeName,ErlArgs,PodDir3),
-    pong=net_adm:ping(Node3),
-    true=rpc:call(Node3,filelib,is_dir,[PodDir3],3*1000),
-   
-    io:format("nodes() ~p~n",[{nodes(),?MODULE,?LINE}]),
-    pod:delete_slave(Node1,list_to_atom("node2"++"@"++Node1_HostId),PodDir3),
-    pod:delete_slave(Node1,list_to_atom("node3"++"@"++Node1_HostId),PodDir3),
-    pod:delete_node(Node1),
-    timer:sleep(1000),
-
-    io:format("nodes() ~p~n",[{nodes(),?MODULE,?LINE}]),
-    ok.
-
-
+  
 %% --------------------------------------------------------------------
 %% Function:start/0 
 %% Description: Initiate the eunit tests, set upp needed processes etc
@@ -344,8 +293,7 @@ setup()->
 %% -------------------------------------------------------------------    
 
 cleanup()->
-    cluster:delete("test_10"),
-%    application:stop(oam),
+  
     ok.
 %% --------------------------------------------------------------------
 %% Function:start/0 
