@@ -74,15 +74,29 @@ pod_0()->
     io:format("Running ~p~n",[{Running,?MODULE,?LINE}]),
     PodName="mymath",
     ClusterName="lgh",
+ 
+    {error,[eexist,glurk,create_pod,pod,_]}=pod:create_pod(glurk,ClusterName),
+    {error,[eexist,glurk,read,db_cluster_spec,_]}=pod:create_pod(PodName,glurk),
+    {error,[eexist,ying,create_pod,pod,_]}=pod:create_pod(ying,yang),
+    
+    
     {ok,PodName,Pod1}=pod:create_pod(PodName,ClusterName),
     
     [N|_]=sd:get(mymath),
     42=rpc:call(N,mymath,add,[20,22],5*1000),
-    
+    io:format("1 sd:get(mymath) ~p~n",[{sd:get(mymath),?MODULE,?LINE}]),
     ok=pod:delete_pod(PodName,Pod1),
-    timer:sleep(1000),
     {badrpc,_Reason}=rpc:call(N,mymath,add,[20,22],5*1000),
-    
+
+    {ok,PodName,Pod2}=pod:create_pod(PodName,ClusterName),
+    {ok,PodName,Pod3}=pod:create_pod(PodName,ClusterName),
+  
+    io:format("2 sd:get(mymath) ~p~n",[{sd:get(mymath),?MODULE,?LINE}]),
+   
+    ok=pod:delete_pod(PodName,Pod2),
+    ok=pod:delete_pod(PodName,Pod3),
+
+    io:format("3 sd:get(mymath) ~p~n",[{sd:get(mymath),?MODULE,?LINE}]),
     ok.
 
 %% --------------------------------------------------------------------

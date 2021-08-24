@@ -114,18 +114,22 @@ create_vm(PodName,ClusterName)->
     Result.
 
 get_host(PodName,ClusterName)->
-    Hosts=db_cluster_spec:hosts(ClusterName),
-    Result=case db_pod_spec:wanted_hosts(PodName) of
-	       []->
-		   L=lists:flatlength(Hosts),
-		   {Alias,HostId}=lists:nth(rand:uniform(L),Hosts),
-		   {ok,{Alias,HostId}};
-	       [{WantedAlias,WantedHostId}]->
-		   case lists:member({WantedAlias,WantedHostId},Hosts) of
-		       false->
-			   {error,["eexists",{WantedAlias,WantedHostId},Hosts,?FUNCTION_NAME,?MODULE,?LINE]};
-		       true->
-			   {ok,{WantedAlias,WantedHostId}}
+    Result=case db_cluster_spec:hosts(ClusterName) of
+	       {error,Reason}->
+		    {error,Reason};
+	       Hosts->
+		   case db_pod_spec:wanted_hosts(PodName) of
+		       []->
+			   L=lists:flatlength(Hosts),
+			   {Alias,HostId}=lists:nth(rand:uniform(L),Hosts),
+			   {ok,{Alias,HostId}};
+		       [{WantedAlias,WantedHostId}]->
+			   case lists:member({WantedAlias,WantedHostId},Hosts) of
+			       false->
+				   {error,["eexists",{WantedAlias,WantedHostId},Hosts,?FUNCTION_NAME,?MODULE,?LINE]};
+			       true->
+				   {ok,{WantedAlias,WantedHostId}}
+			   end
 		   end
 	   end,
     Result.    
@@ -149,7 +153,12 @@ delete_pod(PodName,Pod)->
 		   rpc:call(Pod,os,cmd,["rm -rf "++Dir],5*1000),
 		   rpc:call(Pod,init,stop,[],5*1000),		   
 		   {atomic,ok}=db_pod_spec:delete_deployment(PodName,Pod),
-		   ok
+		   case node_stopped(Pod) of
+		       false->
+			   {error,["node not stopped",PodName,Pod,?FUNCTION_NAME,?MODULE,?LINE]};
+		       true->
+			   ok
+		   end
 	   end,
     Result.
 
@@ -216,4 +225,25 @@ check_started(N,Vm,SleepTime,_Result)->
 		       false
 	      end,
     check_started(N-1,Vm,SleepTime,NewResult).
+
+node_stopped(Node)->
+    check_stopped(100,Node,50,false).
+    
+check_stopped(_N,_Vm,_SleepTime,true)->
+   true;
+check_stopped(0,_Vm,_SleepTime,Result)->
+    Result;
+check_stopped(N,Vm,SleepTime,_Result)->
+    io:format("net_Adm ~p~n",[net_adm:ping(Vm)]),
+    NewResult= case net_adm:ping(Vm) of
+	%case rpc:call(node(),net_adm,ping,[Vm],1000) of
+		  pang->
+		     true;
+		  pong->
+		       timer:sleep(SleepTime),
+		       false;
+		   {badrpc,_}->
+		       true
+	       end,
+    check_stopped(N-1,Vm,SleepTime,NewResult).
 
