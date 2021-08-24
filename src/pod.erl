@@ -234,7 +234,7 @@ check_stopped(_N,_Vm,_SleepTime,true)->
 check_stopped(0,_Vm,_SleepTime,Result)->
     Result;
 check_stopped(N,Vm,SleepTime,_Result)->
-    io:format("net_Adm ~p~n",[net_adm:ping(Vm)]),
+ %   io:format("net_Adm ~p~n",[net_adm:ping(Vm)]),
     NewResult= case net_adm:ping(Vm) of
 	%case rpc:call(node(),net_adm,ping,[Vm],1000) of
 		  pang->
