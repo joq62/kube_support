@@ -63,21 +63,21 @@ start_containers([],_PodName,_Pod,_Dir,StartResult)->
 start_containers([{AppId,AppVsn,GitPath,AppEnv}|T],PodName,Pod,Dir,Acc)->
     NewAcc=case container:load(AppId,AppVsn,GitPath,AppEnv,Pod,Dir) of
 	       {error,Reason}->
-		   {Pod,Dir,PodStatus,ContainerStatus}=db_pod_spec:deployment(PodName,Pod),
+		   {Pod,Dir,HostId,PodStatus,ContainerStatus}=db_pod_spec:deployment(PodName,Pod),
 		   NewContainerStatus=[{AppId,AppVsn,failure}|lists:keydelete(AppId,1,ContainerStatus)],		   
-		   {atomic,ok}=db_pod_spec:update_deployment(PodName,Pod,Dir,PodStatus,NewContainerStatus),		   
+		   {atomic,ok}=db_pod_spec:update_deployment(PodName,Pod,Dir,HostId,PodStatus,NewContainerStatus),		   
 		   [{error,[Reason,AppId,AppVsn,GitPath,AppEnv,Pod,Dir,?FUNCTION_NAME,?MODULE,?LINE]}|Acc];
 	       ok->
 		   case container:start(AppId,Pod) of
 		       {error,Reason}->
-			   {Pod,Dir,PodStatus,ContainerStatus}=db_pod_spec:deployment(PodName,Pod),
+			   {Pod,Dir,HostId,PodStatus,ContainerStatus}=db_pod_spec:deployment(PodName,Pod),
 			   NewContainerStatus=[{AppId,AppVsn,failure}|lists:keydelete(AppId,1,ContainerStatus)],		   
-			   {atomic,ok}=db_pod_spec:update_deployment(PodName,Pod,Dir,PodStatus,NewContainerStatus),
+			   {atomic,ok}=db_pod_spec:update_deployment(PodName,Pod,Dir,HostId,PodStatus,NewContainerStatus),
 			   [{error,[Reason,AppId,AppVsn,GitPath,AppEnv,Pod,Dir,?FUNCTION_NAME,?MODULE,?LINE]}|Acc];
 		       ok->
-			   {Pod,Dir,PodStatus,ContainerStatus}=db_pod_spec:deployment(PodName,Pod),
+			   {Pod,Dir,HostId,PodStatus,ContainerStatus}=db_pod_spec:deployment(PodName,Pod),
 			   NewContainerStatus=[{AppId,AppVsn,started}|lists:keydelete(AppId,1,ContainerStatus)],		   
-			   {atomic,ok}=db_pod_spec:update_deployment(PodName,Pod,Dir,PodStatus,NewContainerStatus),
+			   {atomic,ok}=db_pod_spec:update_deployment(PodName,Pod,Dir,HostId,PodStatus,NewContainerStatus),
 			   [{ok,AppId}|Acc]
 		   end
 	   end,
@@ -106,7 +106,7 @@ create_vm(PodName,ClusterName)->
 			       {error,Reason} ->
 				   {error,[Reason,Ip,SshPort,UId,Pwd,HostId,NodeName,ErlCallArgs,?FUNCTION_NAME,?MODULE,?LINE]};
 			       ok->
-				   {atomic,ok}=db_pod_spec:add_deployment(PodName,Pod,Dir,running,[]),
+				   {atomic,ok}=db_pod_spec:add_deployment(PodName,Pod,Dir,HostId,running,[]),
 				   {ok,Pod,Dir}
 			   end
 		   end
@@ -120,6 +120,9 @@ get_host(PodName,ClusterName)->
 	       Hosts->
 		   case db_pod_spec:wanted_hosts(PodName) of
 		       []->
+			   %Choose Host which has not PodName deployed
+			   %If all Hosts are occupied - choose the one with lowest number of applications
+			   % 
 			   L=lists:flatlength(Hosts),
 			   {Alias,HostId}=lists:nth(rand:uniform(L),Hosts),
 			   {ok,{Alias,HostId}};
@@ -148,7 +151,7 @@ delete_pod(PodName,Pod)->
     Result=case db_pod_spec:deployment(PodName,Pod) of
 	       []->
 		   {error,["eexists",PodName,?FUNCTION_NAME,?MODULE,?LINE]};
-	       {Pod,Dir,_PodStatus,_ContainerStatus}->
+	       {Pod,Dir,_HostId,_PodStatus,_ContainerStatus}->
 		   [container:unload_stop(AppId,Pod)||{AppId,_Vsn,_GitPath,_Env}<-db_pod_spec:containers(PodName)],
 		   rpc:call(Pod,os,cmd,["rm -rf "++Dir],5*1000),
 		   rpc:call(Pod,init,stop,[],5*1000),		   
